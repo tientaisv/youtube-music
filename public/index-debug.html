@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 YouTube Music Player</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">🎵 YouTube Music</div>
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Tìm kiếm bài hát, nghệ sĩ..." autocomplete="off">
+            <button id="search-btn">🔍</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <nav class="nav">
+                <a href="#" class="nav-link active" data-view="search">
+                    <span class="nav-icon">🔍</span>
+                    <span class="nav-text">Tìm kiếm</span>
+                </a>
+                <a href="#" class="nav-link" data-view="queue">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-text">Danh sách phát</span>
+                </a>
+                <a href="#" class="nav-link" data-view="favorites">
+                    <span class="nav-icon">❤️</span>
+                    <span class="nav-text">Yêu thích</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Content Area -->
+        <section class="content-area">
+            <!-- Search Results View -->
+            <div id="search-results" class="view active">
+                <h2 class="view-title">Tìm kiếm</h2>
+                <div id="search-results-container" class="results-container">
+                    <div class="empty-state">
+                        <div class="empty-icon">🎵</div>
+                        <p>Tìm kiếm bài hát yêu thích của bạn</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Queue View -->
+            <div id="queue-view" class="view">
+                <h2 class="view-title">Danh sách phát</h2>
+                <div id="queue-container" class="results-container">
+                    <div class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <p>Danh sách phát trống</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Favorites View -->
+            <div id="favorites-view" class="view">
+                <h2 class="view-title">Yêu thích</h2>
+                <div id="favorites-container" class="results-container">
+                    <div class="empty-state">
+                        <div class="empty-icon">❤️</div>
+                        <p>Chưa có bài hát yêu thích</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Player Bar (Fixed Bottom) -->
+    <footer class="player-bar">
+        <!-- Hidden YouTube Player -->
+        <div id="player-container" style="display: none;"></div>
+
+        <!-- Now Playing Info -->
+        <div class="now-playing">
+            <img id="now-playing-thumb" src="" alt="" class="now-playing-thumb">
+            <div class="now-playing-info">
+                <div id="now-playing-title" class="now-playing-title">Chưa phát bài nào</div>
+                <div id="now-playing-channel" class="now-playing-channel"></div>
+            </div>
+            <button id="favorite-current-btn" class="btn-icon" title="Thêm vào yêu thích" style="display: none;">
+                ❤️
+            </button>
+        </div>
+
+        <!-- Player Controls -->
+        <div class="controls">
+            <button id="shuffle-btn" class="btn-control" title="Phát ngẫu nhiên">🔀</button>
+            <button id="prev-btn" class="btn-control" title="Bài trước">⏮️</button>
+            <button id="play-pause-btn" class="btn-control btn-play-pause" title="Phát/Tạm dừng">▶️</button>
+            <button id="next-btn" class="btn-control" title="Bài tiếp theo">⏭️</button>
+            <button id="repeat-btn" class="btn-control" title="Lặp lại" data-mode="off">🔁</button>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-section">
+            <span id="current-time" class="time-label">0:00</span>
+            <div class="progress-container">
+                <input type="range" id="progress-bar" class="progress-bar" min="0" max="100" value="0">
+            </div>
+            <span id="duration" class="time-label">0:00</span>
+        </div>
+
+        <!-- Volume Control -->
+        <div class="volume-control">
+            <button id="volume-btn" class="btn-icon" title="Âm lượng">🔊</button>
+            <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="50">
+        </div>
+    </footer>
+
+    <!-- Notification Toast -->
+    <div id="notification" class="notification"></div>
+
+    <!-- CRITICAL: Load scripts with defer to ensure DOM is ready -->
+    <script>
+        // Test if JavaScript is working at all
+        console.log('✅ JavaScript is executing!');
+
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ DOM Content Loaded');
+
+            // Test button click immediately
+            const searchBtn = document.getElementById('search-btn');
+            console.log('Search button found:', searchBtn);
+
+            if (searchBtn) {
+                searchBtn.addEventListener('click', function() {
+                    console.log('🔥 SEARCH BUTTON CLICKED!');
+                    alert('Button clicked! JavaScript is working!');
+                });
+            }
+        });
+    </script>
+
+    <!-- Load YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <!-- App Scripts -->
+    <script defer src="/js/player.js"></script>
+    <script defer src="/js/playlist.js"></script>
+    <script defer src="/js/search.js"></script>
+    <script defer src="/js/favorites.js"></script>
+    <script defer src="/js/ui.js"></script>
+    <script defer src="/js/app.js"></script>
+</body>
+</html>

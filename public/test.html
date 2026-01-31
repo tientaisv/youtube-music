@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #121212;
+            color: white;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #282828;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Page - YouTube Music Player</h1>
+
+    <h2>1. Test Buttons</h2>
+    <button onclick="testClick()">Click Me!</button>
+    <button onclick="testSearch()">Test Search API</button>
+    <button onclick="testHealth()">Test Health API</button>
+
+    <h2>2. Test Search</h2>
+    <input type="text" id="search-box" placeholder="Enter search term" style="padding: 10px; width: 300px;">
+    <button onclick="doSearch()">Search</button>
+
+    <div id="result"></div>
+
+    <script>
+        function testClick() {
+            document.getElementById('result').innerHTML = '✅ Button click works!';
+        }
+
+        async function testHealth() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '✅ Health API: ' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('result').innerHTML = '❌ Error: ' + error.message;
+            }
+        }
+
+        async function testSearch() {
+            try {
+                const response = await fetch('/api/search?q=test&max=3');
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '✅ Search API: Found ' + data.count + ' results<br><pre>' + JSON.stringify(data.data[0], null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '❌ Error: ' + error.message;
+            }
+        }
+
+        async function doSearch() {
+            const query = document.getElementById('search-box').value;
+            if (!query) {
+                alert('Please enter a search term');
+                return;
+            }
+
+            try {
+                document.getElementById('result').innerHTML = '🔄 Searching...';
+                const response = await fetch('/api/search?q=' + encodeURIComponent(query) + '&max=5');
+                const data = await response.json();
+
+                let html = '<h3>Found ' + data.count + ' results:</h3>';
+                data.data.forEach(video => {
+                    html += '<div style="margin: 10px 0; padding: 10px; background: #181818; border-radius: 5px;">';
+                    html += '<img src="' + video.thumbnail + '" style="width: 200px; border-radius: 5px;"><br>';
+                    html += '<strong>' + video.title + '</strong><br>';
+                    html += 'Channel: ' + video.channel + '<br>';
+                    html += 'Duration: ' + video.duration;
+                    html += '</div>';
+                });
+
+                document.getElementById('result').innerHTML = html;
+            } catch (error) {
+                document.getElementById('result').innerHTML = '❌ Error: ' + error.message;
+            }
+        }
+
+        // Test on page load
+        window.addEventListener('load', () => {
+            console.log('✅ Page loaded successfully');
+            document.getElementById('result').innerHTML = '✅ Page loaded! JavaScript is working.';
+        });
+    </script>
+</body>
+</html>

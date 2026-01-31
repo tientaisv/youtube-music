@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>JS Test</title>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+            background: #121212;
+            color: white;
+        }
+        button { padding: 15px 30px; font-size: 18px; margin: 10px; cursor: pointer; }
+        #log { margin-top: 20px; padding: 10px; background: #282828; }
+    </style>
+</head>
+<body>
+    <h1>🧪 JavaScript Test Page</h1>
+    <button onclick="testClick()">Test 1: Click Me!</button>
+    <button id="test-btn-2">Test 2: Event Listener</button>
+    <div id="log">Waiting for action...</div>
+
+    <script>
+        // Test 1: Inline onclick
+        function testClick() {
+            document.getElementById('log').innerHTML += '<br>✅ Test 1 PASSED: Inline onclick works!';
+            alert('Inline onclick works!');
+        }
+
+        // Test 2: Event listener
+        document.getElementById('test-btn-2').addEventListener('click', function() {
+            document.getElementById('log').innerHTML += '<br>✅ Test 2 PASSED: addEventListener works!';
+            alert('Event listener works!');
+        });
+
+        // Test 3: Auto log on page load
+        document.getElementById('log').innerHTML = '✅ JavaScript is RUNNING!<br>Page loaded at: ' + new Date();
+    </script>
+</body>
+</html>
