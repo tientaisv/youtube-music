@@ -126,9 +126,10 @@ class Favorites {
    * Create HTML for a favorite card
    */
   createFavoriteCard(video) {
+    const escapedTitle = video.title.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     return `
       <div class="video-card" data-video-id="${video.id}">
-        <img src="${video.thumbnail}" alt="${video.title}" class="video-thumbnail">
+        <img src="${video.thumbnail}" alt="${video.title}" class="video-thumbnail" onerror="this.style.display='none'">
         <div class="video-info">
           <div class="video-title" title="${video.title}">${video.title}</div>
           <div class="video-channel">${video.channel}</div>
@@ -141,6 +142,9 @@ class Favorites {
             </button>
             <button class="btn-icon btn-remove-favorite active" data-video-id="${video.id}" title="Xóa khỏi yêu thích">
               ❤️
+            </button>
+            <button class="btn-icon btn-download" data-video-id="${video.id}" data-video-title="${escapedTitle}" title="Tải xuống">
+              ⬇️
             </button>
           </div>
         </div>

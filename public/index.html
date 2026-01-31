@@ -113,14 +113,22 @@
 
         <!-- Now Playing Info -->
         <div class="now-playing">
-            <img id="now-playing-thumb" src="" alt="" class="now-playing-thumb">
+            <div class="now-playing-thumb-container">
+                <img id="now-playing-thumb" src="" alt="" class="now-playing-thumb">
+                <div id="now-playing-placeholder" class="now-playing-placeholder">🎵</div>
+            </div>
             <div class="now-playing-info">
                 <div id="now-playing-title" class="now-playing-title">Chưa phát bài nào</div>
                 <div id="now-playing-channel" class="now-playing-channel"></div>
             </div>
-            <button id="favorite-current-btn" class="btn-icon" title="Thêm vào yêu thích" style="display: none;">
-                ❤️
-            </button>
+            <div class="now-playing-actions">
+                <button id="favorite-current-btn" class="btn-icon" title="Thêm vào yêu thích" style="display: none;">
+                    ❤️
+                </button>
+                <button id="download-current-btn" class="btn-icon" title="Tải xuống" style="display: none;">
+                    ⬇️
+                </button>
+            </div>
         </div>
 
         <!-- Player Controls -->
@@ -295,8 +303,15 @@
         })();
     </script>
 
-    <!-- Load YouTube IFrame API -->
-    <script src="https://www.youtube.com/iframe_api"></script>
+    <!-- Load YouTube IFrame API asynchronously -->
+    <script>
+        // Load YouTube API asynchronously for faster page load
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        tag.async = true;
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    </script>
 
     <!-- App Scripts -->
     <script defer src="/js/player.js"></script>

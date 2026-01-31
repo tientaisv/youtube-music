@@ -5,15 +5,15 @@ const youtubeService = require('../services/youtube');
 // Search videos
 router.get('/', async (req, res) => {
   try {
-    const { q, max = 20 } = req.query;
+    const { q, max = 100 } = req.query;
 
     if (!q) {
       return res.status(400).json({ error: 'Query parameter "q" is required' });
     }
 
     const maxResults = parseInt(max, 10);
-    if (isNaN(maxResults) || maxResults < 1 || maxResults > 50) {
-      return res.status(400).json({ error: 'Parameter "max" must be between 1 and 50' });
+    if (isNaN(maxResults) || maxResults < 1 || maxResults > 100) {
+      return res.status(400).json({ error: 'Parameter "max" must be between 1 and 100' });
     }
 
     const videos = await youtubeService.searchVideos(q, maxResults);

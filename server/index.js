@@ -18,6 +18,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/video', require('./routes/video'));
 app.use('/api/favorites', require('./routes/favorites'));
+app.use('/api/download', require('./routes/download'));
 app.use('/api/health', require('./routes/health'));
 
 // Serve index.html for all other routes (SPA support)

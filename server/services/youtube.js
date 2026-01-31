@@ -7,7 +7,7 @@ class YouTubeService {
    * @param {number} maxResults - Maximum number of results to return
    * @returns {Promise<Array>} Array of video objects
    */
-  async searchVideos(query, maxResults = 20) {
+  async searchVideos(query, maxResults = 100) {
     try {
       if (!query || query.trim() === '') {
         throw new Error('Search query cannot be empty');

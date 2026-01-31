@@ -34,6 +34,10 @@ document.addEventListener('DOMContentLoaded', function() {
 async function initializeYouTubePlayer() {
   try {
     console.log('🎵 Initializing YouTube player...');
+
+    // Show loading indicator
+    UI.showNotification('Đang khởi tạo player...', 2000);
+
     player = new YouTubePlayer();
     await player.init();
 
@@ -67,6 +71,7 @@ async function initializeYouTubePlayer() {
     UI.updateVolumeIcon(savedVolume);
 
     console.log('✅ YouTube player ready!');
+    UI.showNotification('Player đã sẵn sàng!', 2000);
   } catch (error) {
     console.error('⚠️ YouTube player failed to initialize:', error);
     UI.showNotification('Player initialization failed, but app still works!');
@@ -129,6 +134,10 @@ function setupEventListeners() {
   // Favorite current track
   const favBtn = document.getElementById('favorite-current-btn');
   if (favBtn) favBtn.addEventListener('click', handleFavoriteCurrent);
+
+  // Download current track
+  const downloadBtn = document.getElementById('download-current-btn');
+  if (downloadBtn) downloadBtn.addEventListener('click', handleDownloadCurrent);
 
   // Navigation
   document.querySelectorAll('.nav-link').forEach(link => {
@@ -216,6 +225,13 @@ function handleDynamicClicks(e) {
     }
   }
 
+  // Download button (from search/favorites)
+  if (target.classList.contains('btn-download')) {
+    const videoId = target.dataset.videoId;
+    const videoTitle = target.dataset.videoTitle;
+    handleDownload(videoId, videoTitle);
+  }
+
   // Play from queue
   if (target.classList.contains('btn-play-queue')) {
     const index = parseInt(target.dataset.queueIndex);
@@ -226,6 +242,13 @@ function handleDynamicClicks(e) {
   if (target.classList.contains('btn-remove-queue')) {
     const index = parseInt(target.dataset.queueIndex);
     handleRemoveFromQueue(index);
+  }
+
+  // Download from queue
+  if (target.classList.contains('btn-download-queue')) {
+    const videoId = target.dataset.videoId;
+    const videoTitle = target.dataset.videoTitle;
+    handleDownload(videoId, videoTitle);
   }
 }
 
@@ -283,6 +306,111 @@ async function handleFavoriteCurrent() {
 
   await handleToggleFavorite(currentTrack);
 }
+
+// Download current track
+function handleDownloadCurrent() {
+  const currentTrack = playlist.getCurrentTrack();
+  if (!currentTrack) {
+    UI.showNotification('Không có bài hát nào đang phát');
+    return;
+  }
+
+  handleDownload(currentTrack.id, currentTrack.title);
+}
+
+// Download a video
+async function handleDownload(videoId, videoTitle) {
+  try {
+    UI.showNotification('Đang lấy thông tin...', 2000);
+
+    // Get download info from API
+    const response = await fetch(`/api/download/${videoId}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to get download info');
+    }
+
+    // Show download modal with options
+    showDownloadModal(videoTitle, data.youtubeUrl, videoId);
+
+  } catch (error) {
+    console.error('Download failed:', error);
+    UI.showNotification('Lỗi: ' + error.message);
+  }
+}
+
+// Show download modal
+function showDownloadModal(title, youtubeUrl, videoId) {
+  const modal = document.createElement('div');
+  modal.className = 'download-modal';
+  modal.innerHTML = `
+    <div class="download-modal-content">
+      <div class="download-modal-header">
+        <h3>⬇️ Tải xuống: ${title}</h3>
+        <button class="download-modal-close" onclick="this.closest('.download-modal').remove()">✕</button>
+      </div>
+      <div class="download-modal-body">
+        <p><strong>Lưu ý:</strong> YouTube không cho phép tải trực tiếp từ web. Vui lòng chọn cách tải:</p>
+
+        <div class="download-options">
+          <div class="download-option">
+            <strong>🔗 Cách 1: Copy link YouTube</strong>
+            <div class="download-link-box">
+              <input type="text" readonly value="${youtubeUrl}" id="youtube-link-${videoId}" class="download-link-input">
+              <button onclick="copyToClipboard('youtube-link-${videoId}')" class="btn-copy">📋 Copy</button>
+            </div>
+            <small>Sau đó dùng công cụ như <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a> hoặc extension để tải</small>
+          </div>
+
+          <div class="download-option">
+            <strong>🌐 Cách 2: Mở trên YouTube</strong>
+            <button onclick="window.open('${youtubeUrl}', '_blank')" class="btn-download-action">
+              Mở YouTube ▶️
+            </button>
+            <small>Dùng browser extension để tải (VD: Video DownloadHelper)</small>
+          </div>
+
+          <div class="download-option">
+            <strong>🛠️ Cách 3: Dùng công cụ online</strong>
+            <button onclick="window.open('https://y2mate.com/vi', '_blank')" class="btn-download-action">
+              Mở Y2Mate
+            </button>
+            <small>Copy link YouTube và paste vào trang này</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Close modal when clicking outside
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+// Copy to clipboard function
+window.copyToClipboard = function(elementId) {
+  const input = document.getElementById(elementId);
+  input.select();
+  input.setSelectionRange(0, 99999); // For mobile
+
+  try {
+    document.execCommand('copy');
+    UI.showNotification('✅ Đã copy link vào clipboard!');
+  } catch (err) {
+    // Fallback for modern browsers
+    navigator.clipboard.writeText(input.value).then(() => {
+      UI.showNotification('✅ Đã copy link vào clipboard!');
+    }).catch(() => {
+      UI.showNotification('⚠️ Không thể copy, vui lòng copy thủ công');
+    });
+  }
+};
 
 // Play from queue
 function handlePlayFromQueue(index) {
