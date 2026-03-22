@@ -188,9 +188,6 @@ class Search {
             <button class="btn-icon btn-favorite" data-video-id="${video.id}" title="Thêm vào yêu thích">
               ❤️
             </button>
-            <button class="btn-icon btn-download" data-video-id="${video.id}" data-video-title="${escapedTitle}" title="Tải xuống">
-              ⬇️
-            </button>
           </div>
         </div>
       </div>

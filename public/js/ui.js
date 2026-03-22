@@ -9,7 +9,6 @@ const UI = {
     const title = document.getElementById('now-playing-title');
     const channel = document.getElementById('now-playing-channel');
     const favoriteBtn = document.getElementById('favorite-current-btn');
-    const downloadBtn = document.getElementById('download-current-btn');
 
     if (video) {
       // Load thumbnail with fallback
@@ -32,8 +31,6 @@ const UI = {
       channel.textContent = video.channel || '';
       favoriteBtn.style.display = 'block';
       favoriteBtn.dataset.videoId = video.id;
-      downloadBtn.style.display = 'block';
-      downloadBtn.dataset.videoId = video.id;
     } else {
       thumb.src = '';
       thumb.classList.remove('loaded');
@@ -41,7 +38,6 @@ const UI = {
       title.textContent = 'Chưa phát bài nào';
       channel.textContent = '';
       favoriteBtn.style.display = 'none';
-      downloadBtn.style.display = 'none';
     }
   },
 
@@ -204,9 +200,6 @@ const UI = {
               <button class="btn-icon btn-play-queue" data-queue-index="${index}" title="Phát">
                 ${isPlaying ? '⏸️' : '▶️'}
               </button>
-              <button class="btn-icon btn-download-queue" data-video-id="${video.id}" data-video-title="${this.escapeHtml(video.title)}" title="Tải xuống">
-                ⬇️
-              </button>
               <button class="btn-icon btn-remove-queue" data-queue-index="${index}" title="Xóa khỏi danh sách">
                 🗑️
               </button>
@@ -215,6 +208,96 @@ const UI = {
         </div>
       `;
     }).join('');
+  },
+
+  /**
+   * Render trending videos
+   */
+  renderTrending(videos) {
+    const container = document.getElementById('trending-container');
+    if (!container) return;
+
+    if (!videos || videos.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🔥</div>
+          <p>Hiện tại không có bài hát hot nào</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = videos.map(video => {
+      const escapedTitle = this.escapeHtml(video.title);
+      return `
+        <div class="video-card" data-video-id="${video.id}">
+          <div class="video-thumbnail-container">
+            <img src="${video.thumbnail}" alt="${escapedTitle}" class="video-thumbnail" onerror="this.src='/img/placeholder.png'">
+            <span class="video-duration">${video.duration}</span>
+            <button class="btn-play-overlay btn-play" data-video-id="${video.id}" title="Phát ngay">▶️</button>
+          </div>
+          <div class="video-info">
+            <div class="video-title" title="${escapedTitle}">${video.title}</div>
+            <div class="video-channel">${video.channel}</div>
+            <div class="video-actions">
+              <button class="btn-icon btn-play" data-video-id="${video.id}" title="Phát ngay">▶️</button>
+              <button class="btn-icon btn-add-queue" data-video-id="${video.id}" title="Thêm vào danh sách phát">➕</button>
+              <button class="btn-icon btn-favorite" data-video-id="${video.id}" title="Thêm vào yêu thích">❤️</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  /**
+   * Render Google Drive music files
+   */
+  renderDriveMusic(files) {
+    const container = document.getElementById('mymusic-container');
+    if (!container) return;
+
+    if (!files || files.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📂</div>
+          <p>Không tìm thấy file nhạc nào trên Google Drive của bạn.</p>
+          <p style="font-size: 0.8em; margin-top: 10px;">Hãy đảm bảo bạn đã chia sẻ thư mục nhạc cho email của Service Account.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="drive-table-container">
+        <table class="drive-table">
+          <thead>
+            <tr>
+              <th>Tên bài hát</th>
+              <th style="width: 100px;">Lượt nghe</th>
+              <th style="width: 120px; text-align: right;">Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${files.map(file => {
+              const escapedTitle = this.escapeHtml(file.title);
+              return `
+                <tr class="drive-track-item" data-video-id="${file.id}">
+                  <td class="drive-track-name" title="${escapedTitle}">${file.title}</td>
+                  <td class="drive-track-plays">0</td>
+                  <td>
+                    <div class="drive-track-actions">
+                      <button class="drive-btn-table btn-play-drive" data-file-id="${file.id}" title="Phát ngay">▶️</button>
+                      <button class="drive-btn-table btn-add-queue-drive" data-file-id="${file.id}" title="Thêm vào danh sách phát">➕</button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
   },
 
   /**

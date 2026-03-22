@@ -13,8 +13,20 @@ class YouTubeService {
         throw new Error('Search query cannot be empty');
       }
 
-      const results = await yts(query);
+      console.log(`[YouTubeService] Searching: "${query}" (max: ${maxResults})`);
+      
+      // Add a timeout to constant-time out if yt-search hangs
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('YouTube search timed out after 10s')), 10000);
+      });
+
+      const results = await Promise.race([
+        yts(query),
+        timeoutPromise
+      ]);
+
       const videos = results.videos.slice(0, maxResults);
+      console.log(`[YouTubeService] Found ${videos.length} videos for: "${query}"`);
 
       return videos.map(video => ({
         id: video.videoId,
@@ -29,7 +41,7 @@ class YouTubeService {
         description: video.description
       }));
     } catch (error) {
-      console.error('Error searching videos:', error);
+      console.error('[YouTubeService] Error searching videos:', error);
       throw new Error(`Failed to search videos: ${error.message}`);
     }
   }

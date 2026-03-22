@@ -4,6 +4,8 @@ let playlist;
 let search;
 let favorites;
 let progressUpdateInterval;
+let trendingVideos = []; // Store trending videos
+let scWidget = null;
 
 // Setup event listeners IMMEDIATELY (don't wait for anything)
 document.addEventListener('DOMContentLoaded', function() {
@@ -26,8 +28,25 @@ document.addEventListener('DOMContentLoaded', function() {
     console.error('Failed to load favorites:', err);
   });
 
+  // Load trending videos
+  loadTrending();
+
   // Initialize YouTube player AFTER everything else
   initializeYouTubePlayer();
+
+  // Initialize SoundCloud Widget
+  const scIframe = document.getElementById('sc-widget');
+  if (scIframe) {
+    // Wait for SC API to be ready
+    const checkSC = setInterval(() => {
+      if (window.SC && window.SC.Widget) {
+        scWidget = SC.Widget(scIframe);
+        scWidget.bind(SC.Widget.Events.FINISH, () => handleNext());
+        scWidget.bind(SC.Widget.Events.READY, () => console.log('✅ SoundCloud Widget Ready'));
+        clearInterval(checkSC);
+      }
+    }, 500);
+  }
 });
 
 // Initialize YouTube Player (async, won't block UI)
@@ -96,10 +115,31 @@ function setupEventListeners() {
     console.log('✅ Search input listener added');
   }
 
+  // Trending Refresh
+  const refreshBtn = document.getElementById('trending-refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      loadTrending(true); // Force refresh
+    });
+  }
+
   // Player controls
   const playPauseBtn = document.getElementById('play-pause-btn');
   if (playPauseBtn) {
     playPauseBtn.addEventListener('click', () => {
+      // Handle SoundCloud Widget if it exists and is currently playing a stream
+      const currentTrack = playlist.getCurrentTrack();
+      if (currentTrack && currentTrack.source === 'soundcloud' && scWidget) {
+        scWidget.isPaused((paused) => {
+          if (paused) {
+            scWidget.play();
+          } else {
+            scWidget.pause();
+          }
+        });
+        return;
+      }
+
       if (player && player.isReady) {
         player.togglePlayPause();
       } else {
@@ -135,10 +175,6 @@ function setupEventListeners() {
   const favBtn = document.getElementById('favorite-current-btn');
   if (favBtn) favBtn.addEventListener('click', handleFavoriteCurrent);
 
-  // Download current track
-  const downloadBtn = document.getElementById('download-current-btn');
-  if (downloadBtn) downloadBtn.addEventListener('click', handleDownloadCurrent);
-
   // Navigation
   document.querySelectorAll('.nav-link').forEach(link => {
     link.addEventListener('click', handleNavigation);
@@ -149,10 +185,24 @@ function setupEventListeners() {
 
   // Progress update interval
   progressUpdateInterval = setInterval(() => {
-    if (player && player.isPlaying) {
+    const track = playlist.getCurrentTrack();
+    if (track && track.source === 'soundcloud' && scWidget) {
+        scWidget.getPosition((posMs) => {
+            scWidget.getDuration((durMs) => {
+                if (durMs > 0) {
+                    UI.updateProgressBar(posMs / 1000, durMs / 1000);
+                }
+            });
+        });
+    } else if (player && player.isPlaying) {
       const currentTime = player.getCurrentTime();
       const duration = player.getDuration();
       UI.updateProgressBar(currentTime, duration);
+    } else {
+      const html5Audio = document.getElementById('html5-audio-player');
+      if (html5Audio && !html5Audio.paused) {
+        UI.updateProgressBar(html5Audio.currentTime, html5Audio.duration);
+      }
     }
   }, 1000);
 
@@ -176,6 +226,9 @@ async function handleSearch() {
     const results = await search.performSearch(query);
     console.log('Search results:', results.length);
 
+    // Hide trending when results are found
+    document.getElementById('trending-section').style.display = 'none';
+
     search.renderResults(results);
     UI.switchView('search');
     UI.showNotification(`Tìm thấy ${results.length} kết quả`);
@@ -185,6 +238,83 @@ async function handleSearch() {
   }
 }
 
+// ==================== TRENDING (BÀI HÁT HOT) ====================
+
+async function loadTrending(force = false) {
+  if (trendingVideos.length > 0 && !force) {
+    UI.renderTrending(trendingVideos);
+    return;
+  }
+
+  console.log('🔥 [Trending] Loading started...');
+  const container = document.getElementById('trending-container');
+  if (container) {
+    container.innerHTML = '<div class="trending-loading"><div class="loading"></div><p>Đang tải bài hát hot...</p></div>';
+  }
+
+  // Create an controller to handle timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+  try {
+    const response = await fetch('/api/trending', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    
+    const data = await response.json();
+
+    if (data.success) {
+      console.log(`✅ [Trending] Loaded ${data.data.length} videos`);
+      trendingVideos = data.data;
+      UI.renderTrending(trendingVideos);
+    } else {
+      throw new Error(data.error || 'API returned success: false');
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    const isTimeout = error.name === 'AbortError';
+    const errorMsg = isTimeout ? 'Yêu cầu quá hạn (timeout 15s). Vui lòng kiểm tra kết nối mạng.' : error.message;
+    
+    console.error('❌ [Trending] Failed:', error);
+    
+    if (container) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">⚠️</div>
+          <p>Không thể tải bài hát hot. ${errorMsg}</p>
+          <button onclick="loadTrending(true)" class="pagination-btn" style="margin-top:10px;">Thử lại</button>
+        </div>
+      `;
+    }
+    UI.showNotification('Lỗi tải bài hát hot: ' + (isTimeout ? 'Timeout' : error.message));
+  }
+}
+
+function getTrendingVideoById(id) {
+  return trendingVideos.find(v => v.id === id);
+}
+
+// ==================== SOUNDCLOUD (SÁNG TÁC CỦA TÔI) ====================
+
+async function loadMyMusic() {
+  console.log('Loading music from Google Drive...');
+  try {
+    const response = await fetch('/api/google-drive/files');
+    const data = await response.json();
+    if (data.success) {
+      UI.renderDriveMusic(data.data);
+    } else {
+      throw new Error(data.error || 'Failed to fetch files');
+    }
+  } catch (error) {
+    console.error('Failed to load My Music:', error);
+    UI.showNotification('Lỗi tải nhạc từ Drive: ' + error.message);
+  }
+}
+
+// renderMyMusic removed, using static iframe
+
+// getMyMusicTrackById removed
+
 // Handle dynamic clicks (event delegation)
 function handleDynamicClicks(e) {
   const target = e.target;
@@ -192,7 +322,7 @@ function handleDynamicClicks(e) {
   // Play button
   if (target.classList.contains('btn-play')) {
     const videoId = target.dataset.videoId;
-    const video = search.getVideoById(videoId);
+    let video = getTrendingVideoById(videoId) || search.getVideoById(videoId) || favorites.getFavorites().find(v => v.id === videoId);
     if (video) {
       handlePlayVideo(video);
     }
@@ -201,7 +331,7 @@ function handleDynamicClicks(e) {
   // Add to queue button
   if (target.classList.contains('btn-add-queue')) {
     const videoId = target.dataset.videoId;
-    const video = search.getVideoById(videoId) || favorites.getFavorites().find(v => v.id === videoId);
+    let video = getTrendingVideoById(videoId) || search.getVideoById(videoId) || favorites.getFavorites().find(v => v.id === videoId);
     if (video) {
       handleAddToQueue(video);
     }
@@ -210,7 +340,7 @@ function handleDynamicClicks(e) {
   // Favorite button
   if (target.classList.contains('btn-favorite')) {
     const videoId = target.dataset.videoId;
-    const video = search.getVideoById(videoId);
+    let video = getTrendingVideoById(videoId) || search.getVideoById(videoId) || favorites.getFavorites().find(v => v.id === videoId);
     if (video) {
       handleToggleFavorite(video);
     }
@@ -225,13 +355,6 @@ function handleDynamicClicks(e) {
     }
   }
 
-  // Download button (from search/favorites)
-  if (target.classList.contains('btn-download')) {
-    const videoId = target.dataset.videoId;
-    const videoTitle = target.dataset.videoTitle;
-    handleDownload(videoId, videoTitle);
-  }
-
   // Play from queue
   if (target.classList.contains('btn-play-queue')) {
     const index = parseInt(target.dataset.queueIndex);
@@ -244,11 +367,22 @@ function handleDynamicClicks(e) {
     handleRemoveFromQueue(index);
   }
 
-  // Download from queue
-  if (target.classList.contains('btn-download-queue')) {
-    const videoId = target.dataset.videoId;
-    const videoTitle = target.dataset.videoTitle;
-    handleDownload(videoId, videoTitle);
+  // Google Drive play
+  if (target.classList.contains('btn-play-drive')) {
+    const fileId = target.dataset.fileId;
+    fetch(`/api/google-drive/files`).then(res => res.json()).then(data => {
+      const file = data.data.find(f => f.id === fileId);
+      if (file) handlePlayVideo(file);
+    });
+  }
+
+  // Google Drive add to queue
+  if (target.classList.contains('btn-add-queue-drive')) {
+    const fileId = target.dataset.fileId;
+    fetch(`/api/google-drive/files`).then(res => res.json()).then(data => {
+      const file = data.data.find(f => f.id === fileId);
+      if (file) handleAddToQueue(file);
+    });
   }
 }
 
@@ -263,12 +397,77 @@ function handlePlayVideo(video) {
   const track = playlist.playAt(playlist.getQueue().length - 1);
 
   if (track) {
+    playInternalTrack(track);
+  }
+}
+
+// audioPlayer is now deprecated, scWidget takes over.
+async function playInternalTrack(track) {
+  UI.updateNowPlaying(track);
+  UI.renderQueue(playlist.getQueue(), playlist.currentIndex);
+  UI.showNotification('Đang phát: ' + track.title);
+
+  if (track.source === 'soundcloud') {
+    // SoundCloud
+    if (player) player.pause();
+    
+    try {
+      if (!scWidget) throw new Error('SoundCloud Player chưa sẵn sàng');
+      
+      UI.showNotification('Đang tải SoundCloud...');
+      
+      // Use the permalink or api url for the widget
+      const trackUrl = track.permalink || `https://api.soundcloud.com/tracks/${track.id}`;
+      
+      scWidget.load(trackUrl, {
+        auto_play: true,
+        show_artwork: false,
+        buying: false,
+        sharing: false,
+        download: false,
+        show_comments: false,
+        show_playcount: false,
+        show_user: false,
+        hide_related: true,
+        visual: false
+      });
+
+      // Volume sync
+      const currentVolume = localStorage.getItem('volume') || 50;
+      scWidget.setVolume(currentVolume);
+
+    } catch (error) {
+      console.error('SoundCloud widget error:', error);
+      UI.showNotification('Lỗi phát SoundCloud: ' + error.message);
+    }
+  } else if (track.source === 'googledrive') {
+    // Google Drive
+    if (player) player.pause();
+    if (scWidget) scWidget.pause();
+
+    const html5Audio = document.getElementById('html5-audio-player');
+    html5Audio.src = `/api/google-drive/stream/${track.id}`;
+    html5Audio.volume = (localStorage.getItem('volume') || 50) / 100;
+    
+    html5Audio.play().catch(error => {
+        console.error('HTML5 play error:', error);
+        UI.showNotification('Lỗi phát Drive: ' + error.message);
+    });
+
+    html5Audio.onended = () => handleNext();
+  } else {
+    // YouTube
+    if (scWidget) scWidget.pause();
+    const html5Audio = document.getElementById('html5-audio-player');
+    if (html5Audio) html5Audio.pause();
+    
     player.loadVideo(track.id);
     player.play();
-    UI.updateNowPlaying(track);
-    UI.renderQueue(playlist.getQueue(), playlist.currentIndex);
-    UI.showNotification(`Đang phát: ${track.title}`);
   }
+}
+
+function stopHTML5Audio() {
+  if (scWidget) scWidget.pause();
 }
 
 // Add video to queue
@@ -307,111 +506,6 @@ async function handleFavoriteCurrent() {
   await handleToggleFavorite(currentTrack);
 }
 
-// Download current track
-function handleDownloadCurrent() {
-  const currentTrack = playlist.getCurrentTrack();
-  if (!currentTrack) {
-    UI.showNotification('Không có bài hát nào đang phát');
-    return;
-  }
-
-  handleDownload(currentTrack.id, currentTrack.title);
-}
-
-// Download a video
-async function handleDownload(videoId, videoTitle) {
-  try {
-    UI.showNotification('Đang lấy thông tin...', 2000);
-
-    // Get download info from API
-    const response = await fetch(`/api/download/${videoId}`);
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to get download info');
-    }
-
-    // Show download modal with options
-    showDownloadModal(videoTitle, data.youtubeUrl, videoId);
-
-  } catch (error) {
-    console.error('Download failed:', error);
-    UI.showNotification('Lỗi: ' + error.message);
-  }
-}
-
-// Show download modal
-function showDownloadModal(title, youtubeUrl, videoId) {
-  const modal = document.createElement('div');
-  modal.className = 'download-modal';
-  modal.innerHTML = `
-    <div class="download-modal-content">
-      <div class="download-modal-header">
-        <h3>⬇️ Tải xuống: ${title}</h3>
-        <button class="download-modal-close" onclick="this.closest('.download-modal').remove()">✕</button>
-      </div>
-      <div class="download-modal-body">
-        <p><strong>Lưu ý:</strong> YouTube không cho phép tải trực tiếp từ web. Vui lòng chọn cách tải:</p>
-
-        <div class="download-options">
-          <div class="download-option">
-            <strong>🔗 Cách 1: Copy link YouTube</strong>
-            <div class="download-link-box">
-              <input type="text" readonly value="${youtubeUrl}" id="youtube-link-${videoId}" class="download-link-input">
-              <button onclick="copyToClipboard('youtube-link-${videoId}')" class="btn-copy">📋 Copy</button>
-            </div>
-            <small>Sau đó dùng công cụ như <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a> hoặc extension để tải</small>
-          </div>
-
-          <div class="download-option">
-            <strong>🌐 Cách 2: Mở trên YouTube</strong>
-            <button onclick="window.open('${youtubeUrl}', '_blank')" class="btn-download-action">
-              Mở YouTube ▶️
-            </button>
-            <small>Dùng browser extension để tải (VD: Video DownloadHelper)</small>
-          </div>
-
-          <div class="download-option">
-            <strong>🛠️ Cách 3: Dùng công cụ online</strong>
-            <button onclick="window.open('https://y2mate.com/vi', '_blank')" class="btn-download-action">
-              Mở Y2Mate
-            </button>
-            <small>Copy link YouTube và paste vào trang này</small>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  // Close modal when clicking outside
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.remove();
-    }
-  });
-}
-
-// Copy to clipboard function
-window.copyToClipboard = function(elementId) {
-  const input = document.getElementById(elementId);
-  input.select();
-  input.setSelectionRange(0, 99999); // For mobile
-
-  try {
-    document.execCommand('copy');
-    UI.showNotification('✅ Đã copy link vào clipboard!');
-  } catch (err) {
-    // Fallback for modern browsers
-    navigator.clipboard.writeText(input.value).then(() => {
-      UI.showNotification('✅ Đã copy link vào clipboard!');
-    }).catch(() => {
-      UI.showNotification('⚠️ Không thể copy, vui lòng copy thủ công');
-    });
-  }
-};
-
 // Play from queue
 function handlePlayFromQueue(index) {
   if (!player || !player.isReady) {
@@ -421,10 +515,7 @@ function handlePlayFromQueue(index) {
 
   const track = playlist.playAt(index);
   if (track) {
-    player.loadVideo(track.id);
-    player.play();
-    UI.updateNowPlaying(track);
-    UI.renderQueue(playlist.getQueue(), playlist.currentIndex);
+    playInternalTrack(track);
   }
 }
 
@@ -444,13 +535,11 @@ function handleNext() {
 
   const track = playlist.next();
   if (track) {
-    player.loadVideo(track.id);
-    player.play();
-    UI.updateNowPlaying(track);
-    UI.renderQueue(playlist.getQueue(), playlist.currentIndex);
+    playInternalTrack(track);
   } else {
     UI.showNotification('Đã phát hết danh sách');
-    player.pause();
+    if (player) player.pause();
+    if (scWidget) scWidget.pause();
   }
 }
 
@@ -463,10 +552,7 @@ function handlePrevious() {
 
   const track = playlist.previous();
   if (track) {
-    player.loadVideo(track.id);
-    player.play();
-    UI.updateNowPlaying(track);
-    UI.renderQueue(playlist.getQueue(), playlist.currentIndex);
+    playInternalTrack(track);
   }
 }
 
@@ -492,12 +578,24 @@ function handleRepeat() {
 
 // Seek to position
 function handleSeek(e) {
-  if (!player || !player.isReady) return;
-
   const percentage = e.target.value;
+  const currentTrack = playlist.getCurrentTrack();
+  
+  if (currentTrack && currentTrack.source === 'soundcloud' && scWidget) {
+    scWidget.getDuration((durationMs) => {
+      if (durationMs > 0) {
+        scWidget.seekTo((percentage / 100) * durationMs);
+      }
+    });
+    return;
+  }
+  
+  if (!player || !player.isReady) return;
   const duration = player.getDuration();
-  const seekTime = (percentage / 100) * duration;
-  player.seekTo(seekTime);
+  if (duration > 0) {
+    const seekTime = (percentage / 100) * duration;
+    player.seekTo(seekTime);
+  }
 }
 
 // Handle volume
@@ -507,6 +605,10 @@ function handleVolume(e) {
   if (player && player.isReady) {
     player.setVolume(volume);
   }
+  
+  if (scWidget) {
+    scWidget.setVolume(volume);
+  }
 
   UI.updateVolumeIcon(volume);
   localStorage.setItem('volume', volume);
@@ -514,15 +616,17 @@ function handleVolume(e) {
 
 // Mute/unmute volume
 function handleVolumeMute() {
-  if (!player || !player.isReady) return;
+  const isMutedNow = (player && player.isReady && player.isMuted());
 
-  if (player.isMuted()) {
-    player.unmute();
+  if (isMutedNow) {
+    if (player) player.unmute();
+    if (scWidget) scWidget.setVolume(localStorage.getItem('volume') || 50);
     const savedVolume = localStorage.getItem('volume') || 50;
     document.getElementById('volume-slider').value = savedVolume;
     UI.updateVolumeIcon(savedVolume);
   } else {
-    player.mute();
+    if (player) player.mute();
+    if (scWidget) scWidget.setVolume(0);
     UI.updateVolumeIcon(0);
   }
 }
@@ -538,5 +642,7 @@ function handleNavigation(e) {
     favorites.renderFavorites();
   } else if (viewName === 'queue') {
     UI.renderQueue(playlist.getQueue(), playlist.currentIndex);
+  } else if (viewName === 'mymusic') {
+    loadMyMusic();
   }
 }

@@ -4,3 +4,4 @@ npm-debug.log
 *.log
 .env
 server/data/favorites.json
+algebraic-craft-750-1b192dd8e8a2.json

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -39,6 +40,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Header -->
     <header class="header">
@@ -66,6 +68,10 @@
                     <span class="nav-icon">❤️</span>
                     <span class="nav-text">Yêu thích</span>
                 </a>
+                <a href="#" class="nav-link" data-view="mymusic">
+                    <span class="nav-icon">🎤</span>
+                    <span class="nav-text">Sáng tác</span>
+                </a>
             </nav>
         </aside>
 
@@ -78,6 +84,20 @@
                     <div class="empty-state">
                         <div class="empty-icon">🎵</div>
                         <p>Tìm kiếm bài hát yêu thích của bạn</p>
+                    </div>
+                </div>
+
+                <!-- Trending / Bài hát Hot -->
+                <div id="trending-section">
+                    <div class="trending-header">
+                        <h2 class="trending-title">🔥 Bài hát đang Hot</h2>
+                        <button id="trending-refresh-btn" class="trending-refresh-btn" title="Làm mới">🔄</button>
+                    </div>
+                    <div id="trending-container" class="trending-grid">
+                        <div class="trending-loading">
+                            <div class="loading"></div>
+                            <p>Đang tải bài hát hot...</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -103,13 +123,31 @@
                     </div>
                 </div>
             </div>
+
+            <!-- My Music (Drive) View -->
+            <div id="mymusic-view" class="view">
+                <h2 class="view-title">🎤 Sáng tác của tôi (Google Drive)</h2>
+                <div id="mymusic-container" class="results-container">
+                    <div class="empty-state">
+                        <div class="empty-icon">📂</div>
+                        <p>Đang tải nhạc từ Google Drive...</p>
+                    </div>
+                </div>
+            </div>
         </section>
     </main>
 
     <!-- Player Bar (Fixed Bottom) -->
     <footer class="player-bar">
-        <!-- Hidden YouTube Player - Extreme hiding for Coc Coc -->
+        <!-- Hidden Players - Extreme hiding for Coc Coc -->
         <div id="player-container"></div>
+        <div id="sc-player-container" style="display:none;">
+            <iframe id="sc-widget" width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay"
+                src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/1"></iframe>
+        </div>
+        <audio id="html5-audio-player" style="display:none;"></audio>
+
+        <script src="https://w.soundcloud.com/player/api.js"></script>
 
         <!-- Now Playing Info -->
         <div class="now-playing">
@@ -124,9 +162,6 @@
             <div class="now-playing-actions">
                 <button id="favorite-current-btn" class="btn-icon" title="Thêm vào yêu thích" style="display: none;">
                     ❤️
-                </button>
-                <button id="download-current-btn" class="btn-icon" title="Tải xuống" style="display: none;">
-                    ⬇️
                 </button>
             </div>
         </div>
@@ -163,7 +198,7 @@
     <script>
         // Detect Coc Coc browser
         const isCocCoc = /coc_coc_browser/i.test(navigator.userAgent) ||
-                        window.navigator.userAgent.indexOf('CocCoc') > -1;
+            window.navigator.userAgent.indexOf('CocCoc') > -1;
 
         console.log('🔍 Browser detection:', {
             userAgent: navigator.userAgent,
@@ -171,7 +206,7 @@
         });
 
         // Global PiP prevention - runs immediately
-        (function() {
+        (function () {
             console.log('🚫 Initializing enhanced PiP prevention...');
             if (isCocCoc) {
                 console.log('🦊 Cốc Cốc detected - applying special prevention');
@@ -181,33 +216,33 @@
             if ('pictureInPictureEnabled' in document) {
                 // Disable PiP feature
                 Object.defineProperty(document, 'pictureInPictureEnabled', {
-                    get: function() { return false; },
+                    get: function () { return false; },
                     configurable: false
                 });
 
-                document.addEventListener('enterpictureinpicture', function(e) {
+                document.addEventListener('enterpictureinpicture', function (e) {
                     console.log('🚫 Blocking PiP attempt via document event');
                     e.preventDefault();
                     e.stopPropagation();
                     e.stopImmediatePropagation();
                     if (document.pictureInPictureElement) {
-                        document.exitPictureInPicture().catch(err => {});
+                        document.exitPictureInPicture().catch(err => { });
                     }
                     return false;
                 }, { capture: true, passive: false });
 
                 // Continuous monitoring
-                setInterval(function() {
+                setInterval(function () {
                     if (document.pictureInPictureElement) {
                         console.log('🚫 PiP detected, forcing exit...');
-                        document.exitPictureInPicture().catch(err => {});
+                        document.exitPictureInPicture().catch(err => { });
                     }
                 }, 100); // Check every 100ms for aggressive blocking
             }
 
             // Method 2: Video element interception (Coc Coc specific)
             const originalCreateElement = document.createElement;
-            document.createElement = function(tagName) {
+            document.createElement = function (tagName) {
                 const element = originalCreateElement.call(document, tagName);
 
                 if (tagName.toLowerCase() === 'video') {
@@ -215,13 +250,13 @@
 
                     // Disable PiP on video element
                     Object.defineProperty(element, 'disablePictureInPicture', {
-                        get: function() { return true; },
-                        set: function() { return true; },
+                        get: function () { return true; },
+                        set: function () { return true; },
                         configurable: false
                     });
 
                     // Override requestPictureInPicture
-                    element.requestPictureInPicture = function() {
+                    element.requestPictureInPicture = function () {
                         console.log('🚫 requestPictureInPicture blocked');
                         return Promise.reject(new Error('PiP disabled'));
                     };
@@ -231,8 +266,8 @@
                     element.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback');
 
                     // Monitor attribute changes
-                    const observer = new MutationObserver(function(mutations) {
-                        mutations.forEach(function(mutation) {
+                    const observer = new MutationObserver(function (mutations) {
+                        mutations.forEach(function (mutation) {
                             if (mutation.attributeName === 'disablepictureinpicture') {
                                 element.setAttribute('disablePictureInPicture', 'true');
                             }
@@ -245,34 +280,34 @@
             };
 
             // Method 3: Prevent via visibility change (tab switching)
-            document.addEventListener('visibilitychange', function() {
+            document.addEventListener('visibilitychange', function () {
                 if (document.pictureInPictureElement) {
                     console.log('🚫 Tab switch PiP detected, exiting...');
-                    document.exitPictureInPicture().catch(err => {});
+                    document.exitPictureInPicture().catch(err => { });
                 }
             }, { capture: true });
 
             // Method 4: Prevent via page hide/blur
-            window.addEventListener('blur', function() {
-                setTimeout(function() {
+            window.addEventListener('blur', function () {
+                setTimeout(function () {
                     if (document.pictureInPictureElement) {
                         console.log('🚫 Window blur PiP detected, exiting...');
-                        document.exitPictureInPicture().catch(err => {});
+                        document.exitPictureInPicture().catch(err => { });
                     }
                 }, 100);
             }, { capture: true });
 
-            window.addEventListener('pagehide', function() {
+            window.addEventListener('pagehide', function () {
                 if (document.pictureInPictureElement) {
                     console.log('🚫 Page hide PiP detected, exiting...');
-                    document.exitPictureInPicture().catch(err => {});
+                    document.exitPictureInPicture().catch(err => { });
                 }
             }, { capture: true });
 
             // Method 5: Coc Coc specific - intercept media session
             if ('mediaSession' in navigator) {
                 try {
-                    navigator.mediaSession.setActionHandler('enterpictureinpicture', function() {
+                    navigator.mediaSession.setActionHandler('enterpictureinpicture', function () {
                         console.log('🚫 Media session PiP blocked');
                         return;
                     });
@@ -287,15 +322,15 @@
 
                 // Override requestPictureInPicture on prototype
                 const originalRequestPiP = videoProto.requestPictureInPicture;
-                videoProto.requestPictureInPicture = function() {
+                videoProto.requestPictureInPicture = function () {
                     console.log('🚫 Video.requestPictureInPicture() blocked on prototype');
                     return Promise.reject(new Error('PiP is disabled'));
                 };
 
                 // Override disablePictureInPicture getter
                 Object.defineProperty(videoProto, 'disablePictureInPicture', {
-                    get: function() { return true; },
-                    set: function() { return true; }
+                    get: function () { return true; },
+                    set: function () { return true; }
                 });
             }
 
@@ -321,4 +356,5 @@
     <script defer src="/js/ui.js"></script>
     <script defer src="/js/app.js"></script>
 </body>
+
 </html>

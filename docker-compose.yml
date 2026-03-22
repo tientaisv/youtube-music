@@ -11,6 +11,9 @@ services:
       - NODE_ENV=production
     volumes:
       - ./server/data:/app/server/data
+      - ./public:/app/public
+      - ./server:/app/server
+      - ./algebraic-craft-750-1b192dd8e8a2.json:/app/algebraic-craft-750-1b192dd8e8a2.json
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8089/api/health"]
