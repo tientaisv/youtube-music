@@ -22,6 +22,7 @@ app.use('/api/download', require('./routes/download'));
 app.use('/api/trending', require('./routes/trending'));
 app.use('/api/soundcloud', require('./routes/soundcloud'));
 app.use('/api/google-drive', require('./routes/google-drive'));
+app.use('/api/voh', require('./routes/voh'));
 app.use('/api/health', require('./routes/health'));
 
 // Serve index.html for all other routes (SPA support)

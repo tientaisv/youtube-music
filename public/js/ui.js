@@ -188,26 +188,41 @@ const UI = {
       return;
     }
 
-    container.innerHTML = queue.map((video, index) => {
-      const isPlaying = index === currentIndex;
-      return `
-        <div class="video-card ${isPlaying ? 'playing' : ''}" data-queue-index="${index}">
-          <img src="${video.thumbnail}" alt="${video.title}" class="video-thumbnail" onerror="this.style.display='none'">
-          <div class="video-info">
-            <div class="video-title" title="${video.title}">${video.title}</div>
-            <div class="video-channel">${video.channel}</div>
-            <div class="video-actions">
-              <button class="btn-icon btn-play-queue" data-queue-index="${index}" title="Phát">
-                ${isPlaying ? '⏸️' : '▶️'}
-              </button>
-              <button class="btn-icon btn-remove-queue" data-queue-index="${index}" title="Xóa khỏi danh sách">
-                🗑️
-              </button>
+    container.innerHTML = `
+      <div class="bulk-actions-bar queue-bulk-actions">
+        <label class="select-all-label">
+          <input type="checkbox" id="select-all-queue"> Chọn tất cả
+        </label>
+        <button id="delete-selected-queue" class="btn-bulk-delete" disabled>
+          🗑️ Xóa đã chọn (<span class="selected-count">0</span>)
+        </button>
+      </div>
+      <div class="queue-list grid-list">
+        ${queue.map((video, index) => {
+          const isPlaying = index === currentIndex;
+          return `
+            <div class="video-card ${isPlaying ? 'playing' : ''}" data-queue-index="${index}">
+              <div class="bulk-select-container">
+                <input type="checkbox" class="bulk-select-checkbox queue-checkbox" data-queue-index="${index}">
+              </div>
+              <img src="${video.thumbnail}" alt="${video.title}" class="video-thumbnail" onerror="this.style.display='none'">
+              <div class="video-info">
+                <div class="video-title" title="${video.title}">${video.title}</div>
+                <div class="video-channel">${video.channel}</div>
+                <div class="video-actions">
+                  <button class="btn-icon btn-play-queue" data-queue-index="${index}" title="Phát">
+                    ${isPlaying ? '⏸️' : '▶️'}
+                  </button>
+                  <button class="btn-icon btn-remove-queue" data-queue-index="${index}" title="Xóa khỏi danh sách">
+                    🗑️
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      `;
-    }).join('');
+          `;
+        }).join('')}
+      </div>
+    `;
   },
 
   /**
@@ -312,7 +327,43 @@ const UI = {
       }
     });
   },
+  /**
+   * Render VOH episodes
+   */
+  renderVOH(episodes) {
+    const container = document.getElementById('voh-container');
+    if (!container) return;
 
+    if (!episodes || episodes.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🍃</div>
+          <p>Hiện tại không có lá thư xanh nào</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = episodes.map(episode => {
+      const escapedTitle = this.escapeHtml(episode.title);
+      return `
+        <div class="video-card voh-card" data-voh-url="${episode.url}">
+          <div class="video-thumbnail-container">
+            <img src="${episode.thumbnail}" alt="${escapedTitle}" class="video-thumbnail" onerror="this.src='/img/voh-placeholder.png'">
+            <button class="btn-play-overlay btn-play-voh" data-voh-url="${episode.url}" title="Phát ngay">▶️</button>
+          </div>
+          <div class="video-info">
+            <div class="video-title" title="${escapedTitle}">${episode.title}</div>
+            <div class="video-channel">${episode.channel}</div>
+            <div class="video-actions">
+              <button class="btn-icon btn-play-voh" data-voh-url="${episode.url}" title="Phát ngay">▶️</button>
+              <button class="btn-icon btn-add-queue-voh" data-voh-url="${episode.url}" title="Thêm vào danh sách phát">➕</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
   /**
    * Escape HTML to prevent XSS
    */

@@ -9,14 +9,8 @@ let trendingCache = {
   CACHE_DURATION: 30 * 60 * 1000 // 30 minutes
 };
 
-// Trending search queries - rotated randomly for variety
-const TRENDING_QUERIES = [
-  'new and trending music videos global 2026',
-  'youtube music new and trending official videos',
-  'latest music videos trending worldwide 2026',
-  'hot new music videos this week global',
-  'top trending music videos global chart 2026'
-];
+// Playlist ID for "RELEASED" (The Hit List) from Music topic channel
+const HOT_PLAYLIST_ID = 'RDCLAK5uy_mOmfogvkugBD9vd5EbejT2y82WidC6as0';
 
 // GET /api/trending
 router.get('/', async (req, res) => {
@@ -29,18 +23,26 @@ router.get('/', async (req, res) => {
       return res.json({ success: true, data: trendingCache.data, cached: true });
     }
 
-    // Pick a random query for variety
-    const query = TRENDING_QUERIES[Math.floor(Math.random() * TRENDING_QUERIES.length)];
-    console.log(`[Trending] Fetching fresh results for: "${query}"`);
+    console.log(`[Trending] Fetching fresh results from playlist: "${HOT_PLAYLIST_ID}"`);
     
-    const videos = await youtubeService.searchVideos(query, 20);
+    // Get popular videos from the specified playlist
+    const videos = await youtubeService.getPlaylistVideos(HOT_PLAYLIST_ID, 30);
 
-    // Cache the results
-    trendingCache.data = videos;
+    // If playlist fetch fails or is empty, fallback to a general search
+    if (!videos || videos.length === 0) {
+      console.log('[Trending] Playlist empty or failed, falling back to search');
+      const fallbackQuery = 'new music videos trending global';
+      const fallbackVideos = await youtubeService.searchVideos(fallbackQuery, 20);
+      trendingCache.data = fallbackVideos;
+    } else {
+      // Cache the results
+      trendingCache.data = videos;
+    }
+
     trendingCache.timestamp = now;
 
-    console.log(`[Trending] Successfully fetched ${videos.length} videos`);
-    res.json({ success: true, data: videos, cached: false });
+    console.log(`[Trending] Successfully updated cache with ${trendingCache.data.length} videos`);
+    res.json({ success: true, data: trendingCache.data, cached: false });
   } catch (error) {
     console.error('[Trending Route] Error:', error);
 

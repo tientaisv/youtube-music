@@ -83,6 +83,33 @@ class Favorites {
   }
 
   /**
+   * Bulk remove videos from favorites
+   */
+  async removeMultiple(videoIds) {
+    try {
+      const response = await fetch('/api/favorites/bulk-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ids: videoIds })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to bulk remove favorites');
+      }
+
+      this.favorites = this.favorites.filter(fav => !videoIds.includes(fav.id));
+      return true;
+    } catch (error) {
+      console.error('Error bulk removing favorites:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Check if video is in favorites
    */
   isFavorite(videoId) {
@@ -119,7 +146,19 @@ class Favorites {
       return;
     }
 
-    container.innerHTML = this.favorites.map(video => this.createFavoriteCard(video)).join('');
+    container.innerHTML = `
+      <div class="bulk-actions-bar favorites-bulk-actions">
+        <label class="select-all-label">
+          <input type="checkbox" id="select-all-favorites"> Chọn tất cả
+        </label>
+        <button id="delete-selected-favorites" class="btn-bulk-delete" disabled>
+          🗑️ Xóa đã chọn (<span class="selected-count">0</span>)
+        </button>
+      </div>
+      <div class="favorites-grid results-container">
+        ${this.favorites.map(video => this.createFavoriteCard(video)).join('')}
+      </div>
+    `;
   }
 
   /**
@@ -128,7 +167,10 @@ class Favorites {
   createFavoriteCard(video) {
     const escapedTitle = video.title.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     return `
-      <div class="video-card" data-video-id="${video.id}">
+      <div class="video-card favorite-card" data-video-id="${video.id}">
+        <div class="bulk-select-container">
+          <input type="checkbox" class="bulk-select-checkbox fav-checkbox" data-video-id="${video.id}">
+        </div>
         <img src="${video.thumbnail}" alt="${video.title}" class="video-thumbnail" onerror="this.style.display='none'">
         <div class="video-info">
           <div class="video-title" title="${video.title}">${video.title}</div>

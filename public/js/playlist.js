@@ -31,6 +31,33 @@ class Playlist {
   }
 
   /**
+   * Remove multiple videos from the queue
+   */
+  removeMultiple(indices) {
+    if (!Array.isArray(indices) || indices.length === 0) return;
+
+    // Sort indices in descending order to avoid offset issues while splicing
+    const sortedIndices = [...indices].sort((a, b) => b - a);
+    const currentTrack = this.getCurrentTrack();
+
+    sortedIndices.forEach(index => {
+      if (index >= 0 && index < this.queue.length) {
+        this.queue.splice(index, 1);
+      }
+    });
+
+    // Update currentIndex
+    if (this.queue.length === 0) {
+      this.currentIndex = -1;
+    } else if (currentTrack) {
+      // Find the new index of the current track
+      this.currentIndex = this.queue.findIndex(t => t.id === currentTrack.id);
+    }
+
+    this.saveToLocalStorage();
+  }
+
+  /**
    * Clear the entire queue
    */
   clear() {

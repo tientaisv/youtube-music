@@ -47,33 +47,43 @@ class YouTubeService {
   }
 
   /**
-   * Get video details by ID
-   * @param {string} videoId - YouTube video ID
-   * @returns {Promise<Object>} Video details object
+   * Get videos from a YouTube playlist
+   * @param {string} playlistId - YouTube playlist ID
+   * @param {number} maxResults - Maximum number of results to return
+   * @returns {Promise<Array>} Array of video objects
    */
-  async getVideoDetails(videoId) {
+  async getPlaylistVideos(playlistId, maxResults = 100) {
     try {
-      if (!videoId || videoId.trim() === '') {
-        throw new Error('Video ID cannot be empty');
+      if (!playlistId || playlistId.trim() === '') {
+        throw new Error('Playlist ID cannot be empty');
       }
 
-      const result = await yts({ videoId });
+      console.log(`[YouTubeService] Fetching playlist: "${playlistId}" (max: ${maxResults})`);
+      
+      const results = await yts({ listId: playlistId });
+      
+      if (!results || !results.videos) {
+        return [];
+      }
 
-      return {
-        id: result.videoId,
-        title: result.title,
-        thumbnail: result.thumbnail,
-        channel: result.author.name,
-        channelUrl: result.author.url,
-        duration: result.timestamp,
-        durationSeconds: result.seconds,
-        views: result.views,
-        url: result.url,
-        description: result.description
-      };
+      const videos = results.videos.slice(0, maxResults);
+      console.log(`[YouTubeService] Found ${videos.length} videos in playlist: "${results.title}"`);
+
+      return videos.map(video => ({
+        id: video.videoId,
+        title: video.title,
+        thumbnail: video.thumbnail,
+        channel: video.author.name,
+        channelUrl: video.author.url,
+        duration: video.duration.timestamp,
+        durationSeconds: video.duration.seconds,
+        views: video.views,
+        url: `https://www.youtube.com/watch?v=${video.videoId}`,
+        description: '' // Playlist items in yt-search usually don't have descriptions
+      }));
     } catch (error) {
-      console.error('Error getting video details:', error);
-      throw new Error(`Failed to get video details: ${error.message}`);
+      console.error('[YouTubeService] Error getting playlist videos:', error);
+      throw new Error(`Failed to get playlist videos: ${error.message}`);
     }
   }
 }

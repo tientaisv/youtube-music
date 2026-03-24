@@ -93,4 +93,34 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Bulk remove from favorites
+router.post('/bulk-delete', async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Array of video IDs is required' });
+    }
+
+    const favorites = await readFavorites();
+    const initialCount = favorites.length;
+    const filteredFavorites = favorites.filter(fav => !ids.includes(fav.id));
+
+    if (filteredFavorites.length === initialCount) {
+      return res.status(404).json({ error: 'No matching videos found in favorites' });
+    }
+
+    await writeFavorites(filteredFavorites);
+
+    res.json({ 
+      success: true, 
+      message: `${initialCount - filteredFavorites.length} videos removed from favorites`,
+      removedCount: initialCount - filteredFavorites.length
+    });
+  } catch (error) {
+    console.error('Error bulk removing favorites:', error);
+    res.status(500).json({ error: 'Failed to bulk remove favorites' });
+  }
+});
+
 module.exports = router;

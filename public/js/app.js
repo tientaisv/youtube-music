@@ -5,6 +5,7 @@ let search;
 let favorites;
 let progressUpdateInterval;
 let trendingVideos = []; // Store trending videos
+let vohEpisodes = []; // Store VOH episodes
 let scWidget = null;
 
 // Setup event listeners IMMEDIATELY (don't wait for anything)
@@ -311,6 +312,47 @@ async function loadMyMusic() {
   }
 }
 
+// ==================== VOH (NHỮNG LÁ THƯ XANH) ====================
+
+async function loadVOH() {
+  console.log('🍃 [VOH] Loading started...');
+  const container = document.getElementById('voh-container');
+  if (container) {
+    container.innerHTML = '<div class="trending-loading"><div class="loading"></div><p>Đang tải danh sách lá thư xanh...</p></div>';
+  }
+
+  try {
+    const response = await fetch('/api/voh/episodes');
+    const data = await response.json();
+
+    if (data.success) {
+      console.log(`✅ [VOH] Loaded ${data.data.length} episodes`);
+      vohEpisodes = data.data;
+      UI.renderVOH(vohEpisodes);
+    } else {
+      throw new Error(data.error || 'API returned success: false');
+    }
+  } catch (error) {
+    console.error('❌ [VOH] Failed:', error);
+    if (container) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">⚠️</div>
+          <p>Không thể tải danh sách lá thư xanh. ${error.message}</p>
+          <button id="voh-retry-btn" class="pagination-btn" style="margin-top:10px;">Thử lại</button>
+        </div>
+      `;
+      const retryBtn = document.getElementById('voh-retry-btn');
+      if (retryBtn) retryBtn.onclick = loadVOH;
+    }
+    UI.showNotification('Lỗi tải VOH: ' + error.message);
+  }
+}
+
+function getVOHTrackByUrl(url) {
+  return vohEpisodes.find(v => v.url === url);
+}
+
 // renderMyMusic removed, using static iframe
 
 // getMyMusicTrackById removed
@@ -384,6 +426,20 @@ function handleDynamicClicks(e) {
       if (file) handleAddToQueue(file);
     });
   }
+
+  // VOH play
+  if (target.classList.contains('btn-play-voh')) {
+    const url = target.dataset.vohUrl;
+    const track = getVOHTrackByUrl(url);
+    if (track) handlePlayVideo(track);
+  }
+
+  // VOH add to queue
+  if (target.classList.contains('btn-add-queue-voh')) {
+    const url = target.dataset.vohUrl;
+    const track = getVOHTrackByUrl(url);
+    if (track) handleAddToQueue(track);
+  }
 }
 
 // Play a video
@@ -455,12 +511,38 @@ async function playInternalTrack(track) {
     });
 
     html5Audio.onended = () => handleNext();
-  } else {
-    // YouTube
+  } else if (track.isVOH) {
+    // VOH Radio
+    if (player) player.pause();
     if (scWidget) scWidget.pause();
+    
     const html5Audio = document.getElementById('html5-audio-player');
     if (html5Audio) html5Audio.pause();
-    
+
+    UI.showNotification('Đang trích xuất link âm thanh VOH...');
+    try {
+        const res = await fetch(`/api/voh/audio?url=${encodeURIComponent(track.url)}`);
+        const audioData = await res.json();
+        if (audioData.success) {
+            const html5AudioPlayer = document.getElementById('html5-audio-player');
+            html5AudioPlayer.src = audioData.audioUrl;
+            html5AudioPlayer.volume = (localStorage.getItem('volume') || 50) / 100;
+            
+            html5AudioPlayer.play().catch(error => {
+                console.error('VOH play error:', error);
+                UI.showNotification('Lỗi phát VOH: ' + error.message);
+            });
+            
+            html5AudioPlayer.onended = () => handleNext();
+        } else {
+            throw new Error(audioData.error);
+        }
+    } catch (error) {
+        console.error('VOH extraction error:', error);
+        UI.showNotification('Lỗi trích xuất VOH: ' + error.message);
+    }
+  } else {
+    // YouTube (Default)
     player.loadVideo(track.id);
     player.play();
   }
@@ -644,5 +726,91 @@ function handleNavigation(e) {
     UI.renderQueue(playlist.getQueue(), playlist.currentIndex);
   } else if (viewName === 'mymusic') {
     loadMyMusic();
+  } else if (viewName === 'voh') {
+    loadVOH();
   }
 }
+
+// ==================== BULK ACTIONS ====================
+
+function updateBulkDeleteButton(viewType) {
+    const checkboxes = document.querySelectorAll('.' + viewType + '-checkbox');
+    const checkedBoxes = document.querySelectorAll('.' + viewType + '-checkbox:checked');
+    const deleteBtn = document.getElementById('delete-selected-' + viewType);
+    const selectAll = document.getElementById('select-all-' + viewType);
+    const countDisplay = deleteBtn ? deleteBtn.querySelector('.selected-count') : null;
+
+    if (deleteBtn) {
+        deleteBtn.disabled = checkedBoxes.length === 0;
+        if (countDisplay) countDisplay.textContent = checkedBoxes.length;
+    }
+
+    if (selectAll) {
+        selectAll.checked = checkboxes.length > 0 && checkedBoxes.length === checkboxes.length;
+    }
+}
+
+// Event delegation for bulk actions
+document.addEventListener('change', (e) => {
+    const target = e.target;
+    
+    // Select All Queue
+    if (target.id === 'select-all-queue') {
+        const checkboxes = document.querySelectorAll('.queue-checkbox');
+        checkboxes.forEach(cb => cb.checked = target.checked);
+        updateBulkDeleteButton('queue');
+    }
+
+    // Select All Favorites
+    if (target.id === 'select-all-favorites') {
+        const checkboxes = document.querySelectorAll('.fav-checkbox');
+        checkboxes.forEach(cb => cb.checked = target.checked);
+        updateBulkDeleteButton('favorites');
+    }
+
+    // Individual Checkboxes
+    if (target.classList.contains('queue-checkbox')) {
+        updateBulkDeleteButton('queue');
+    }
+    
+    if (target.classList.contains('fav-checkbox')) {
+        updateBulkDeleteButton('favorites');
+    }
+});
+
+document.addEventListener('click', async (e) => {
+    const target = e.target;
+
+    // Delete Selected Queue
+    if (target.id === 'delete-selected-queue' || target.closest('#delete-selected-queue')) {
+        const checkedBoxes = document.querySelectorAll('.queue-checkbox:checked');
+        const indices = Array.from(checkedBoxes).map(cb => parseInt(cb.dataset.queueIndex));
+        
+        if (indices.length > 0) {
+            if (confirm('Bạn có chắc chắn muốn xóa ' + indices.length + ' bài hát khỏi danh sách phát?')) {
+                playlist.removeMultiple(indices);
+                UI.renderQueue(playlist.getQueue(), playlist.currentIndex);
+                UI.showNotification('Đã xóa ' + indices.length + ' bài hát');
+            }
+        }
+    }
+
+    // Delete Selected Favorites
+    if (target.id === 'delete-selected-favorites' || target.closest('#delete-selected-favorites')) {
+        const checkedBoxes = document.querySelectorAll('.fav-checkbox:checked');
+        const ids = Array.from(checkedBoxes).map(cb => cb.dataset.videoId);
+        
+        if (ids.length > 0) {
+            if (confirm('Bạn có chắc chắn muốn xóa ' + ids.length + ' bài hát khỏi mục yêu thích?')) {
+                try {
+                    UI.showNotification('Đang xóa...');
+                    await favorites.removeMultiple(ids);
+                    favorites.renderFavorites();
+                    UI.showNotification('Đã xóa ' + ids.length + ' bài hát thành công');
+                } catch (error) {
+                    UI.showNotification('Lỗi: ' + error.message);
+                }
+            }
+        }
+    }
+});
