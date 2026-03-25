@@ -304,6 +304,7 @@ const UI = {
                     <div class="drive-track-actions">
                       <button class="drive-btn-table btn-play-drive" data-file-id="${file.id}" title="Phát ngay">▶️</button>
                       <button class="drive-btn-table btn-add-queue-drive" data-file-id="${file.id}" title="Thêm vào danh sách phát">➕</button>
+                      <a href="/api/google-drive/stream/${file.id}?download=1" class="drive-btn-table btn-download-drive" title="Tải về" download style="display:inline-block; text-decoration:none; text-align:center;">⬇️</a>
                     </div>
                   </td>
                 </tr>

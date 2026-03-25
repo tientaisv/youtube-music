@@ -62,7 +62,13 @@ router.get('/stream/:fileId', async (req, res) => {
     if (fileMetadata.data.size) {
       res.setHeader('Content-Length', fileMetadata.data.size);
     }
-    res.setHeader('Accept-Ranges', 'bytes');
+    
+    if (req.query.download) {
+      const filename = encodeURIComponent(fileMetadata.data.name);
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${filename}`);
+    } else {
+      res.setHeader('Accept-Ranges', 'bytes');
+    }
 
     // Download stream từ Google Drive
     const response = await drive.files.get(
