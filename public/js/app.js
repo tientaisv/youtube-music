@@ -141,6 +141,19 @@ function setupEventListeners() {
         return;
       }
 
+      // Handle HTML5 Audio Player for Google Drive and VOH
+      const html5Audio = document.getElementById('html5-audio-player');
+      if (currentTrack && (currentTrack.source === 'googledrive' || currentTrack.isVOH)) {
+        if (html5Audio) {
+          if (html5Audio.paused) {
+            html5Audio.play();
+          } else {
+            html5Audio.pause();
+          }
+        }
+        return;
+      }
+
       if (player && player.isReady) {
         player.togglePlayPause();
       } else {
@@ -183,6 +196,13 @@ function setupEventListeners() {
 
   // Event delegation for dynamic content
   document.addEventListener('click', handleDynamicClicks);
+
+  // Sync play/pause UI for HTML5 Audio
+  const html5Audio = document.getElementById('html5-audio-player');
+  if (html5Audio) {
+    html5Audio.addEventListener('play', () => UI.updatePlayPauseButton(true));
+    html5Audio.addEventListener('pause', () => UI.updatePlayPauseButton(false));
+  }
 
   // Progress update interval
   progressUpdateInterval = setInterval(() => {
@@ -672,6 +692,15 @@ function handleSeek(e) {
     return;
   }
   
+  if (currentTrack && (currentTrack.source === 'googledrive' || currentTrack.isVOH)) {
+    const html5Audio = document.getElementById('html5-audio-player');
+    if (html5Audio && html5Audio.duration) {
+      const seekTime = (percentage / 100) * html5Audio.duration;
+      html5Audio.currentTime = seekTime;
+    }
+    return;
+  }
+
   if (!player || !player.isReady) return;
   const duration = player.getDuration();
   if (duration > 0) {
@@ -692,23 +721,40 @@ function handleVolume(e) {
     scWidget.setVolume(volume);
   }
 
+  const html5Audio = document.getElementById('html5-audio-player');
+  if (html5Audio) {
+    html5Audio.volume = volume / 100;
+  }
+
   UI.updateVolumeIcon(volume);
   localStorage.setItem('volume', volume);
 }
 
 // Mute/unmute volume
 function handleVolumeMute() {
-  const isMutedNow = (player && player.isReady && player.isMuted());
+  const currentTrack = playlist.getCurrentTrack();
+  const html5Audio = document.getElementById('html5-audio-player');
+  const isHtml5 = currentTrack && (currentTrack.source === 'googledrive' || currentTrack.isVOH);
+  
+  // Use HTML5 audio muted state or player muted state depending on the track
+  const isMutedNow = isHtml5 
+    ? (html5Audio && html5Audio.volume === 0) 
+    : (player && player.isReady && player.isMuted());
 
   if (isMutedNow) {
     if (player) player.unmute();
     if (scWidget) scWidget.setVolume(localStorage.getItem('volume') || 50);
+    
     const savedVolume = localStorage.getItem('volume') || 50;
+    if (html5Audio) html5Audio.volume = savedVolume / 100;
+    
     document.getElementById('volume-slider').value = savedVolume;
     UI.updateVolumeIcon(savedVolume);
   } else {
     if (player) player.mute();
     if (scWidget) scWidget.setVolume(0);
+    if (html5Audio) html5Audio.volume = 0;
+    
     UI.updateVolumeIcon(0);
   }
 }
