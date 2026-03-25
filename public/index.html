@@ -1,17 +1,134 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html class="dark" lang="vi">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎵 YouTube Music Player</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>The Digital Curator - YouTube Music</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface-dim": "#131313",
+                        "error-container": "#93000a",
+                        "on-primary-fixed-variant": "#005320",
+                        "on-tertiary": "#4f2501",
+                        "on-secondary-fixed-variant": "#005320",
+                        "surface-container-highest": "#353534",
+                        "surface-bright": "#3a3939",
+                        "surface": "#131313",
+                        "primary": "#77ff92",
+                        "on-surface": "#e5e2e1",
+                        "inverse-primary": "#006e2c",
+                        "on-primary-fixed": "#002108",
+                        "on-error-container": "#ffdad6",
+                        "on-error": "#690005",
+                        "on-secondary-container": "#80cd89",
+                        "on-secondary-fixed": "#002108",
+                        "surface-container-low": "#1c1b1b",
+                        "on-background": "#e5e2e1",
+                        "surface-container": "#201f1f",
+                        "on-tertiary-container": "#794720",
+                        "on-surface-variant": "#bbcbb8",
+                        "on-primary-container": "#006126",
+                        "surface-container-high": "#2a2a2a",
+                        "tertiary-fixed": "#ffdcc5",
+                        "secondary": "#8ad893",
+                        "error": "#ffb4ab",
+                        "surface-tint": "#2be36a",
+                        "primary-fixed": "#68ff8a",
+                        "outline-variant": "#3c4a3c",
+                        "on-tertiary-fixed": "#301400",
+                        "on-secondary": "#003914",
+                        "inverse-surface": "#e5e2e1",
+                        "inverse-on-surface": "#313030",
+                        "primary-fixed-dim": "#2be36a",
+                        "background": "#131313",
+                        "tertiary": "#ffdec9",
+                        "outline": "#859583",
+                        "secondary-container": "#005822",
+                        "primary-container": "#2ee56b",
+                        "on-tertiary-fixed-variant": "#6a3b14",
+                        "tertiary-fixed-dim": "#fdb787",
+                        "tertiary-container": "#ffb988",
+                        "secondary-fixed": "#a6f5ad",
+                        "surface-variant": "#353534",
+                        "secondary-fixed-dim": "#8ad893",
+                        "on-primary": "#003914"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    },
+                    borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
     <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .glass-effect {
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+        }
+
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+            font-family: 'Manrope', sans-serif;
+            min-height: max(300px, 100dvh);
+            overflow-x: hidden;
+        }
+
+        .sonic-glow {
+            box-shadow: 0 -4px 30px rgba(43, 227, 106, 0.15);
+        }
+
+        @keyframes spin-slow {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .animate-spin-slow {
+            animation: spin-slow 12s linear infinite;
+        }
+
+        /* Hide Scrollbar */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+
+        .view {
+            display: none;
+        }
+
+        .view.active {
+            display: block;
+        }
+
         /* Extra layer: Force hide any PiP elements */
         [data-picture-in-picture],
         .ytp-pip-button,
         .ytp-picture-in-picture-button,
-        /* Coc Coc specific */
         .cc-pip-button,
         .cc-picture-in-picture-button,
         [class*="pip"],
@@ -38,338 +155,347 @@
             pointer-events: none !important;
             z-index: -99999 !important;
         }
+
+        div#search-results-container {
+            grid-template-columns: 1fr;
+        }
     </style>
 </head>
 
-<body>
-    <!-- Header -->
-    <header class="header">
-        <div class="logo">🎵 YouTube Music</div>
-        <div class="search-container">
-            <input type="text" id="search-input" placeholder="Tìm kiếm bài hát, nghệ sĩ..." autocomplete="off">
-            <button id="search-btn">🔍</button>
+<body class="min-h-screen pb-40 lg:pb-32 bg-surface">
+    <!-- Desktop Sidebar -->
+    <aside
+        class="fixed left-0 top-0 bottom-0 w-64 bg-surface-container-low border-r border-primary/5 hidden lg:flex flex-col z-50">
+        <div class="px-8 py-8">
+            <h1 class="font-headline font-extrabold text-2xl tracking-tighter text-primary">YourMusic</h1>
         </div>
-    </header>
+        <nav class="flex-1 px-4 space-y-2">
+            <div class="nav-link flex items-center gap-4 px-4 py-3 text-on-surface/60 hover:text-primary hover:bg-primary/5 rounded-xl transition-all cursor-pointer active"
+                data-view="search">
+                <span class="material-symbols-outlined">search</span>
+                <span class="font-body font-bold text-sm uppercase tracking-widest">Tìm kiếm</span>
+            </div>
+            <div class="nav-link flex items-center gap-4 px-4 py-3 text-on-surface/60 hover:text-primary hover:bg-primary/5 rounded-xl transition-all cursor-pointer"
+                data-view="queue">
+                <span class="material-symbols-outlined">queue_music</span>
+                <span class="font-body font-bold text-sm uppercase tracking-widest">Playlist</span>
+            </div>
+            <div class="nav-link flex items-center gap-4 px-4 py-3 text-on-surface/60 hover:text-primary hover:bg-primary/5 rounded-xl transition-all cursor-pointer"
+                data-view="favorites">
+                <span class="material-symbols-outlined">favorite</span>
+                <span class="font-body font-bold text-sm uppercase tracking-widest">Yêu thích</span>
+            </div>
+            <div class="nav-link flex items-center gap-4 px-4 py-3 text-on-surface/60 hover:text-primary hover:bg-primary/5 rounded-xl transition-all cursor-pointer"
+                data-view="mymusic">
+                <span class="material-symbols-outlined">brush</span>
+                <span class="font-body font-bold text-sm uppercase tracking-widest">Sáng tác</span>
+            </div>
+            <div class="nav-link flex items-center gap-4 px-4 py-3 text-on-surface/60 hover:text-primary hover:bg-primary/5 rounded-xl transition-all cursor-pointer"
+                data-view="voh">
+                <span class="material-symbols-outlined">mail</span>
+                <span class="font-body font-bold text-sm uppercase tracking-widest">Thư xanh</span>
+            </div>
+        </nav>
+        <div class="px-8 py-8 border-t border-primary/5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full overflow-hidden border border-primary/20">
+                    <img alt="User" class="w-full h-full object-cover"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJlkgwtYdRnRcLAP634wS-ALwETKXAbqHtuTH6MKvBFEyb-uGKPH9Et-nBOatf2TiMaH_FIu4TV_KiQUTwQa_UCrpUbB87YBW7ZwnO18ZMfJ5PZRCNbsCscLZp-N3lhJpXGy3hi1Y2nI7e34LAWnSaT458DtWpvkqKAzGmjoP1M56p0PkPTBnRpVsjjkbZpjfeFFWnHtZulNWe6aWICYxbDACCOqd9DRJJZBz7wbZGBU6t_6eoQh0n15OKRnwJRDsHuF3Q-80ArAbw" />
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-on-surface font-bold text-sm">Người dùng</span>
+                    <span class="text-primary text-[10px] font-bold uppercase tracking-widest">Premium Member</span>
+                </div>
+            </div>
+        </div>
+    </aside>
 
-    <!-- Main Content -->
-    <main class="main-content">
-        <!-- Sidebar Navigation -->
-        <aside class="sidebar">
-            <nav class="nav">
-                <a href="#" class="nav-link active" data-view="search">
-                    <span class="nav-icon">🔍</span>
-                    <span class="nav-text">Tìm kiếm</span>
-                </a>
-                <a href="#" class="nav-link" data-view="queue">
-                    <span class="nav-icon">📋</span>
-                    <span class="nav-text">Danh sách phát</span>
-                </a>
-                <a href="#" class="nav-link" data-view="favorites">
-                    <span class="nav-icon">❤️</span>
-                    <span class="nav-text">Yêu thích</span>
-                </a>
-                <a href="#" class="nav-link" data-view="mymusic">
-                    <span class="nav-icon">🎤</span>
-                    <span class="nav-text">Sáng tác</span>
-                </a>
-                <a href="#" class="nav-link" data-view="voh">
-                    <span class="nav-icon">🍃</span>
-                    <span class="nav-text">Thư xanh</span>
-                </a>
-            </nav>
-        </aside>
+    <!-- Content Wrapper -->
+    <div class="lg:ml-64 flex flex-col min-h-screen">
+        <!-- TopAppBar -->
+        <header
+            class="fixed top-0 right-0 left-0 lg:left-64 z-40 bg-surface/60 backdrop-blur-xl flex items-center justify-between px-6 py-4 shadow-[0_4px_30px_rgba(0,0,0,0.1)] border-b border-white/5">
+            <div class="flex items-center gap-3 lg:hidden">
+                <h1 class="font-headline font-extrabold text-2xl tracking-tighter text-primary">YourMusic</h1>
+            </div>
+            <div class="hidden lg:block">
+                <div
+                    class="flex items-center gap-4 bg-surface-container-high rounded-full px-6 py-2 w-96 border border-white/5 focus-within:border-primary/50 transition-all">
+                    <span class="material-symbols-outlined text-on-surface-variant">search</span>
+                    <input type="text" id="search-input" placeholder="Tìm kiếm bài hát, nghệ sĩ..."
+                        class="bg-transparent border-none focus:ring-0 text-on-surface text-sm w-full"
+                        autocomplete="off">
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="search-btn"
+                    class="text-primary hover:opacity-80 transition-opacity active:scale-95 lg:hidden">
+                    <span class="material-symbols-outlined text-3xl">search</span>
+                </button>
+                <div class="w-10 h-10 rounded-full overflow-hidden border border-primary/20 hidden lg:block">
+                    <img alt="User" class="w-full h-full object-cover"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJlkgwtYdRnRcLAP634wS-ALwETKXAbqHtuTH6MKvBFEyb-uGKPH9Et-nBOatf2TiMaH_FIu4TV_KiQUTwQa_UCrpUbB87YBW7ZwnO18ZMfJ5PZRCNbsCscLZp-N3lhJpXGy3hi1Y2nI7e34LAWnSaT458DtWpvkqKAzGmjoP1M56p0PkPTBnRpVsjjkbZpjfeFFWnHtZulNWe6aWICYxbDACCOqd9DRJJZBz7wbZGBU6t_6eoQh0n15OKRnwJRDsHuF3Q-80ArAbw" />
+                </div>
+            </div>
+        </header>
 
-        <!-- Content Area -->
-        <section class="content-area">
-            <!-- Search Results View -->
-            <div id="search-results" class="view active">
-                <h2 class="view-title">Tìm kiếm</h2>
-                <div id="search-results-container" class="results-container">
-                    <div class="empty-state">
-                        <div class="empty-icon">🎵</div>
-                        <p>Tìm kiếm bài hát yêu thích của bạn</p>
+        <main class="pt-24 pb-48 lg:pb-32 px-6 lg:px-12 space-y-10 flex-1">
+            <!-- Search Results View (Integrated) -->
+            <div id="search-view" class="view active">
+
+                <!-- Search Field for Mobile -->
+                <div class="sm:hidden mb-6">
+                    <div
+                        class="relative flex items-center bg-surface-container-high rounded-full px-4 py-3 border border-primary/10">
+                        <span class="material-symbols-outlined text-primary mr-2">search</span>
+                        <input type="text" id="search-input-mobile" placeholder="Bạn muốn nghe gì?"
+                            class="bg-transparent border-none focus:ring-0 text-on-surface flex-1 text-sm">
                     </div>
                 </div>
 
-                <!-- Trending / Bài hát Hot -->
-                <div id="trending-section">
-                    <div class="trending-header">
-                        <h2 class="trending-title">🔥 Bài hát đang Hot</h2>
-                        <button id="trending-refresh-btn" class="trending-refresh-btn" title="Làm mới">🔄</button>
+                <!-- Trending Section -->
+                <section id="trending-section" class="space-y-6">
+                    <div class="flex justify-between items-end">
+                        <h3 class="font-headline font-bold text-2xl text-on-surface">Bài hát Hot</h3>
+                        <button id="trending-refresh-btn"
+                            class="text-primary font-bold text-sm tracking-wide hover:opacity-80 transition-opacity uppercase">Làm
+                            mới</button>
                     </div>
-                    <div id="trending-container" class="trending-grid">
-                        <div class="trending-loading">
-                            <div class="loading"></div>
+                    <div id="trending-container" class="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                        <!-- Loading State -->
+                        <div
+                            class="col-span-full py-10 flex flex-col items-center justify-center text-on-surface-variant">
+                            <div
+                                class="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4">
+                            </div>
                             <p>Đang tải bài hát hot...</p>
                         </div>
                     </div>
-                </div>
+                </section>
+
+                <!-- Results Section (Hidden by default) -->
+                <section id="search-results-container-section" class="space-y-6 hidden">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-headline font-bold text-2xl text-on-surface">Kết quả tìm kiếm</h3>
+                        <button id="clear-search-btn"
+                            class="flex items-center gap-1 text-primary text-sm font-bold uppercase tracking-widest bg-primary/10 px-4 py-2 rounded-full hover:bg-primary/20 transition-all active:scale-95">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                            <span>Quay lại</span>
+                        </button>
+                    </div>
+                    <div id="search-results-container" class="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    </div>
+
+                    <!-- Search Loading State -->
+                    <div id="search-loading"
+                        class="hidden py-20 flex flex-col items-center justify-center text-on-surface-variant col-span-full">
+                        <div
+                            class="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 shadow-[0_0_15px_rgba(43,227,106,0.3)]">
+                        </div>
+                        <p class="font-bold tracking-widest uppercase text-xs">Đang tìm kiếm giai điệu...</p>
+                    </div>
+                </section>
             </div>
 
             <!-- Queue View -->
-            <div id="queue-view" class="view">
-                <h2 class="view-title">Danh sách phát</h2>
-                <div id="queue-container" class="results-container">
-                    <div class="empty-state">
-                        <div class="empty-icon">📋</div>
-                        <p>Danh sách phát trống</p>
-                    </div>
-                </div>
+            <div id="queue-view" class="view space-y-6">
+                <h3 class="font-headline font-bold text-2xl text-on-surface">Danh sách phát</h3>
+                <div id="queue-container" class="space-y-4"></div>
             </div>
 
             <!-- Favorites View -->
-            <div id="favorites-view" class="view">
-                <h2 class="view-title">Yêu thích</h2>
-                <div id="favorites-container" class="results-container">
-                    <div class="empty-state">
-                        <div class="empty-icon">❤️</div>
-                        <p>Chưa có bài hát yêu thích</p>
-                    </div>
-                </div>
+            <div id="favorites-view" class="view space-y-6">
+                <h3 class="font-headline font-bold text-2xl text-on-surface">Yêu thích</h3>
+                <div id="favorites-container" class="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6"></div>
             </div>
 
-            <!-- My Music (Drive) View -->
-            <div id="mymusic-view" class="view">
-                <h2 class="view-title">🎤 Sáng tác của tôi (Google Drive)</h2>
-                <div id="mymusic-container" class="results-container">
-                    <div class="empty-state">
-                        <div class="empty-icon">📂</div>
-                        <p>Đang tải nhạc từ Google Drive...</p>
-                    </div>
-                </div>
+            <!-- My Music View -->
+            <div id="mymusic-view" class="view space-y-6">
+                <h3 class="font-headline font-bold text-2xl text-on-surface">Sáng tác của tôi</h3>
+                <div id="mymusic-container" class="space-y-2"></div>
             </div>
 
             <!-- VOH View -->
-            <div id="voh-view" class="view">
-                <h2 class="view-title">🍃 Những lá thư xanh (VOH Radio)</h2>
-                <div id="voh-container" class="results-container">
-                    <div class="empty-state">
-                        <div class="empty-icon">🍃</div>
-                        <p>Đang tải danh sách lá thư xanh...</p>
+            <div id="voh-view" class="view space-y-6">
+                <h3 class="font-headline font-bold text-2xl text-on-surface">Thư xanh (VOH Radio)</h3>
+                <div id="voh-container" class="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Desktop/Mobile Player Bar -->
+    <div class="fixed bottom-20 lg:bottom-4 left-0 right-0 lg:left-72 lg:right-8 z-40 transition-all duration-500">
+        <div
+            class="bg-surface-bright/90 backdrop-blur-3xl lg:rounded-2xl px-4 lg:px-8 py-3 lg:py-5 sonic-glow border border-white/5 flex items-center justify-between shadow-2xl">
+            <div class="flex items-center gap-4 overflow-hidden w-1/3">
+                <div
+                    class="w-12 h-12 lg:w-16 lg:h-16 flex-shrink-0 rounded-full lg:rounded-xl overflow-hidden shadow-lg border border-primary/20 animate-spin-slow">
+                    <img id="now-playing-thumb" alt="Now Playing" class="w-full h-full object-cover" src="" />
+                    <div id="now-playing-placeholder"
+                        class="w-full h-full flex items-center justify-center bg-surface-container-high text-primary">
+                        <span class="material-symbols-outlined text-3xl">music_note</span>
                     </div>
                 </div>
+                <div class="flex flex-col min-width-0">
+                    <span id="now-playing-title"
+                        class="text-on-surface font-bold text-sm lg:text-lg tracking-tight truncate w-32 sm:w-48 lg:w-64">Chưa
+                        phát bài nào</span>
+                    <span id="now-playing-channel"
+                        class="text-primary text-[10px] lg:text-xs font-bold uppercase tracking-widest truncate">YourMusic
+                        • Sẵn sàng</span>
+                </div>
             </div>
-        </section>
-    </main>
 
-    <!-- Player Bar (Fixed Bottom) -->
-    <footer class="player-bar">
-        <!-- Hidden Players - Extreme hiding for Coc Coc -->
-        <div id="player-container"></div>
-        <div id="sc-player-container" style="display:none;">
-            <iframe id="sc-widget" width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay"
-                src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/1"></iframe>
-        </div>
-        <audio id="html5-audio-player" style="display:none;"></audio>
-
-        <script src="https://w.soundcloud.com/player/api.js"></script>
-
-        <!-- Now Playing Info -->
-        <div class="now-playing">
-            <div class="now-playing-thumb-container">
-                <img id="now-playing-thumb" src="" alt="" class="now-playing-thumb">
-                <div id="now-playing-placeholder" class="now-playing-placeholder">🎵</div>
+            <!-- Main Controls -->
+            <div class="flex flex-col items-center gap-2 w-1/3">
+                <div class="flex items-center gap-4 lg:gap-8">
+                    <button id="shuffle-btn"
+                        class="text-on-surface/40 hover:text-primary transition-colors hidden sm:block">
+                        <span class="material-symbols-outlined">shuffle</span>
+                    </button>
+                    <button id="prev-btn" class="text-on-surface hover:text-primary active:scale-90 transition-all">
+                        <span class="material-symbols-outlined text-3xl lg:text-4xl">skip_previous</span>
+                    </button>
+                    <button id="play-pause-btn"
+                        class="w-12 h-12 lg:w-16 lg:h-16 bg-primary rounded-full flex items-center justify-center text-on-primary active:scale-95 transition-all shadow-[0_0_20px_rgba(43,227,106,0.4)]">
+                        <span class="material-symbols-outlined text-4xl lg:text-5xl"
+                            style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                    </button>
+                    <button id="next-btn" class="text-on-surface hover:text-primary active:scale-90 transition-all">
+                        <span class="material-symbols-outlined text-3xl lg:text-4xl">skip_next</span>
+                    </button>
+                    <button id="repeat-btn"
+                        class="text-on-surface/40 hover:text-primary transition-colors hidden sm:block" data-mode="off">
+                        <span class="material-symbols-outlined">repeat</span>
+                    </button>
+                </div>
+                <!-- Progress Bar (Desktop) -->
+                <div class="hidden lg:flex w-full items-center gap-3 px-4">
+                    <span id="current-time" class="text-[10px] font-bold text-on-surface-variant w-8">0:00</span>
+                    <div class="flex-1 h-1.5 bg-white/10 rounded-full relative group cursor-pointer overflow-hidden">
+                        <div id="progress-bar-fill"
+                            class="absolute left-0 top-0 bottom-0 bg-primary w-0 rounded-full shadow-[0_0_8px_#77ff92]">
+                        </div>
+                        <input type="range" id="progress-bar" class="absolute inset-0 opacity-0 cursor-pointer w-full"
+                            min="0" max="100" value="0">
+                    </div>
+                    <span id="duration" class="text-[10px] font-bold text-on-surface-variant w-8 text-right">0:00</span>
+                </div>
             </div>
-            <div class="now-playing-info">
-                <div id="now-playing-title" class="now-playing-title">Chưa phát bài nào</div>
-                <div id="now-playing-channel" class="now-playing-channel"></div>
-            </div>
-            <div class="now-playing-actions">
-                <button id="favorite-current-btn" class="btn-icon" title="Thêm vào yêu thích" style="display: none;">
-                    ❤️
+
+            <!-- Volume/Action Controls -->
+            <div class="flex items-center justify-end gap-2 lg:gap-6 w-1/3">
+                <button id="favorite-current-btn"
+                    class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-90 transition-all">
+                    <span class="material-symbols-outlined">favorite</span>
+                </button>
+                <div class="hidden lg:flex items-center gap-2 group">
+                    <button id="volume-btn" class="text-on-surface-variant hover:text-primary transition-colors">
+                        <span class="material-symbols-outlined">volume_up</span>
+                    </button>
+                    <div class="w-24 h-1.5 bg-white/10 rounded-full relative overflow-hidden">
+                        <input type="range" id="volume-slider"
+                            class="absolute inset-0 opacity-0 cursor-pointer z-10 w-full" min="0" max="100" value="50">
+                        <div id="volume-fill" class="absolute left-0 top-0 bottom-0 bg-primary w-1/2 rounded-full">
+                        </div>
+                    </div>
+                </div>
+                <button class="nav-link lg:hidden" data-view="queue">
+                    <span class="material-symbols-outlined">queue_music</span>
                 </button>
             </div>
         </div>
 
-        <!-- Player Controls -->
-        <div class="controls">
-            <button id="shuffle-btn" class="btn-control" title="Phát ngẫu nhiên">🔀</button>
-            <button id="prev-btn" class="btn-control" title="Bài trước">⏮️</button>
-            <button id="play-pause-btn" class="btn-control btn-play-pause" title="Phát/Tạm dừng">▶️</button>
-            <button id="next-btn" class="btn-control" title="Bài tiếp theo">⏭️</button>
-            <button id="repeat-btn" class="btn-control" title="Lặp lại" data-mode="off">🔁</button>
+        <!-- Mobile Progress Overlay -->
+        <div class="lg:hidden absolute bottom-0 left-6 right-6 h-[2px] bg-white/10 rounded-full overflow-hidden">
+            <div id="progress-bar-fill-mobile" class="h-full bg-primary w-0"></div>
         </div>
+    </div>
 
-        <!-- Progress Bar -->
-        <div class="progress-section">
-            <span id="current-time" class="time-label">0:00</span>
-            <div class="progress-container">
-                <input type="range" id="progress-bar" class="progress-bar" min="0" max="100" value="0">
-            </div>
-            <span id="duration" class="time-label">0:00</span>
+    <!-- BottomNavBar (Mobile Only) -->
+    <nav
+        class="fixed bottom-0 w-full z-50 lg:hidden rounded-t-[2.5rem] bg-surface/80 backdrop-blur-2xl flex justify-around items-center px-4 pt-2 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] border-t border-white/5">
+        <!-- Tìm kiếm -->
+        <div class="nav-link flex flex-col items-center justify-center text-on-surface/60 hover:text-primary transition-colors active:scale-90 duration-300 ease-out cursor-pointer active"
+            data-view="search">
+            <span class="material-symbols-outlined">search</span>
+            <span class="font-body font-medium text-[10px] uppercase tracking-widest mt-1">Tìm kiếm</span>
         </div>
+        <!-- Playlist -->
+        <div class="nav-link flex flex-col items-center justify-center text-on-surface/60 hover:text-primary transition-colors active:scale-90 duration-300 ease-out cursor-pointer"
+            data-view="queue">
+            <span class="material-symbols-outlined">queue_music</span>
+            <span class="font-body font-medium text-[10px] uppercase tracking-widest mt-1">Playlist</span>
+        </div>
+        <!-- Yêu thích -->
+        <div class="nav-link flex flex-col items-center justify-center text-on-surface/60 hover:text-primary transition-colors active:scale-90 duration-300 ease-out cursor-pointer"
+            data-view="favorites">
+            <span class="material-symbols-outlined">favorite</span>
+            <span class="font-body font-medium text-[10px] uppercase tracking-widest mt-1">Yêu thích</span>
+        </div>
+        <!-- Sáng tác -->
+        <div class="nav-link flex flex-col items-center justify-center text-on-surface/60 hover:text-primary transition-colors active:scale-90 duration-300 ease-out cursor-pointer"
+            data-view="mymusic">
+            <span class="material-symbols-outlined">brush</span>
+            <span class="font-body font-medium text-[10px] uppercase tracking-widest mt-1">Sáng tác</span>
+        </div>
+        <!-- Thư xanh -->
+        <div class="nav-link flex flex-col items-center justify-center text-on-surface/60 hover:text-primary transition-colors active:scale-90 duration-300 ease-out cursor-pointer"
+            data-view="voh">
+            <span class="material-symbols-outlined">mail</span>
+            <span class="font-body font-medium text-[10px] uppercase tracking-widest mt-1">Thư xanh</span>
+        </div>
+    </nav>
 
-        <!-- Volume Control -->
-        <div class="volume-control">
-            <button id="volume-btn" class="btn-icon" title="Âm lượng">🔊</button>
-            <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="50">
-        </div>
-    </footer>
+    <!-- Hidden Video Player Containers -->
+    <div id="player-container"></div>
+    <div id="sc-player-container" style="display:none;">
+        <iframe id="sc-widget" width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay"
+            src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/1"></iframe>
+    </div>
+    <audio id="html5-audio-player" style="display:none;" playsinline preload="auto"></audio>
 
     <!-- Notification Toast -->
-    <div id="notification" class="notification"></div>
+    <div id="notification"
+        class="fixed bottom-32 left-1/2 -translate-x-1/2 bg-surface-container-high text-on-surface px-6 py-3 rounded-full shadow-2xl transition-all opacity-0 pointer-events-none z-[100]">
+    </div>
 
-    <!-- Enhanced PiP Prevention Script (Coc Coc Compatible) -->
+    <!-- Scripts -->
+    <script src="https://w.soundcloud.com/player/api.js"></script>
     <script>
-        // Detect Coc Coc browser
-        const isCocCoc = /coc_coc_browser/i.test(navigator.userAgent) ||
-            window.navigator.userAgent.indexOf('CocCoc') > -1;
-
-        console.log('🔍 Browser detection:', {
-            userAgent: navigator.userAgent,
-            isCocCoc: isCocCoc
-        });
-
-        // Global PiP prevention - runs immediately
-        (function () {
-            console.log('🚫 Initializing enhanced PiP prevention...');
-            if (isCocCoc) {
-                console.log('🦊 Cốc Cốc detected - applying special prevention');
-            }
-
-            // Method 1: Standard PiP API blocking
-            if ('pictureInPictureEnabled' in document) {
-                // Disable PiP feature
-                Object.defineProperty(document, 'pictureInPictureEnabled', {
-                    get: function () { return false; },
-                    configurable: false
-                });
-
-                document.addEventListener('enterpictureinpicture', function (e) {
-                    console.log('🚫 Blocking PiP attempt via document event');
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                    if (document.pictureInPictureElement) {
-                        document.exitPictureInPicture().catch(err => { });
-                    }
-                    return false;
-                }, { capture: true, passive: false });
-
-                // Continuous monitoring
-                setInterval(function () {
-                    if (document.pictureInPictureElement) {
-                        console.log('🚫 PiP detected, forcing exit...');
-                        document.exitPictureInPicture().catch(err => { });
-                    }
-                }, 100); // Check every 100ms for aggressive blocking
-            }
-
-            // Method 2: Video element interception (Coc Coc specific)
-            const originalCreateElement = document.createElement;
-            document.createElement = function (tagName) {
-                const element = originalCreateElement.call(document, tagName);
-
-                if (tagName.toLowerCase() === 'video') {
-                    console.log('🎥 Video element created, applying PiP prevention');
-
-                    // Disable PiP on video element
-                    Object.defineProperty(element, 'disablePictureInPicture', {
-                        get: function () { return true; },
-                        set: function () { return true; },
-                        configurable: false
-                    });
-
-                    // Override requestPictureInPicture
-                    element.requestPictureInPicture = function () {
-                        console.log('🚫 requestPictureInPicture blocked');
-                        return Promise.reject(new Error('PiP disabled'));
-                    };
-
-                    // Remove PiP controls
-                    element.setAttribute('disablePictureInPicture', 'true');
-                    element.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback');
-
-                    // Monitor attribute changes
-                    const observer = new MutationObserver(function (mutations) {
-                        mutations.forEach(function (mutation) {
-                            if (mutation.attributeName === 'disablepictureinpicture') {
-                                element.setAttribute('disablePictureInPicture', 'true');
-                            }
-                        });
-                    });
-                    observer.observe(element, { attributes: true });
-                }
-
-                return element;
-            };
-
-            // Method 3: Prevent via visibility change (tab switching)
-            document.addEventListener('visibilitychange', function () {
-                if (document.pictureInPictureElement) {
-                    console.log('🚫 Tab switch PiP detected, exiting...');
-                    document.exitPictureInPicture().catch(err => { });
-                }
-            }, { capture: true });
-
-            // Method 4: Prevent via page hide/blur
-            window.addEventListener('blur', function () {
-                setTimeout(function () {
-                    if (document.pictureInPictureElement) {
-                        console.log('🚫 Window blur PiP detected, exiting...');
-                        document.exitPictureInPicture().catch(err => { });
-                    }
-                }, 100);
-            }, { capture: true });
-
-            window.addEventListener('pagehide', function () {
-                if (document.pictureInPictureElement) {
-                    console.log('🚫 Page hide PiP detected, exiting...');
-                    document.exitPictureInPicture().catch(err => { });
-                }
-            }, { capture: true });
-
-            // Method 5: Coc Coc specific - intercept media session
-            if ('mediaSession' in navigator) {
-                try {
-                    navigator.mediaSession.setActionHandler('enterpictureinpicture', function () {
-                        console.log('🚫 Media session PiP blocked');
-                        return;
-                    });
-                } catch (e) {
-                    console.log('Media session handler not available');
-                }
-            }
-
-            // Method 6: Override HTMLVideoElement prototype
-            if (window.HTMLVideoElement) {
-                const videoProto = HTMLVideoElement.prototype;
-
-                // Override requestPictureInPicture on prototype
-                const originalRequestPiP = videoProto.requestPictureInPicture;
-                videoProto.requestPictureInPicture = function () {
-                    console.log('🚫 Video.requestPictureInPicture() blocked on prototype');
-                    return Promise.reject(new Error('PiP is disabled'));
-                };
-
-                // Override disablePictureInPicture getter
-                Object.defineProperty(videoProto, 'disablePictureInPicture', {
-                    get: function () { return true; },
-                    set: function () { return true; }
-                });
-            }
-
-            console.log('✅ Enhanced PiP prevention initialized (Coc Coc compatible)');
-        })();
-    </script>
-
-    <!-- Load YouTube IFrame API asynchronously -->
-    <script>
-        // Load YouTube API asynchronously for faster page load
+        // Load YouTube API asynchronously
         var tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
         tag.async = true;
         var firstScriptTag = document.getElementsByTagName('script')[0];
         firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-    </script>
 
-    <!-- App Scripts -->
+        // Enhanced PiP Prevention Script (Minimalized version of the existing one)
+        (function () {
+            if ('pictureInPictureEnabled' in document) {
+                Object.defineProperty(document, 'pictureInPictureEnabled', { get: function () { return false; }, configurable: false });
+                document.addEventListener('enterpictureinpicture', function (e) { e.preventDefault(); return false; }, { capture: true, passive: false });
+                setInterval(function () { if (document.pictureInPictureElement) document.exitPictureInPicture().catch(err => { }); }, 500);
+            }
+        })();
+    </script>
     <script defer src="/js/player.js"></script>
     <script defer src="/js/playlist.js"></script>
     <script defer src="/js/search.js"></script>
     <script defer src="/js/favorites.js"></script>
     <script defer src="/js/ui.js"></script>
     <script defer src="/js/app.js"></script>
+
+    <style>
+        /* Custom Active State for Nav Links */
+        .nav-link.active {
+            color: #77ff92;
+            background-color: rgba(43, 227, 106, 0.1);
+            border-radius: 9999px;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+    </style>
 </body>
 
 </html>

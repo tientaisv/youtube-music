@@ -14,7 +14,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Initialize modules that don't need YouTube API
   playlist = new Playlist();
-  search = new Search();
+  window.search = new Search(); // Make search globally accessible
+  search = window.search;
   favorites = new Favorites();
 
   // Setup ALL event listeners IMMEDIATELY
@@ -85,12 +86,30 @@ async function initializeYouTubePlayer() {
     UI.updateRepeatButton(playlist.repeatMode);
 
     // Set initial volume
-    const savedVolume = localStorage.getItem('volume') || 50;
-    player.setVolume(savedVolume);
-    document.getElementById('volume-slider').value = savedVolume;
-    UI.updateVolumeIcon(savedVolume);
+    const setupVol = () => {
+      const vol = localStorage.getItem('volume') || 50;
+      const volumeSlider = document.getElementById('volume-slider'); // Define volumeSlider here
+      if (volumeSlider) volumeSlider.value = vol;
+      if (player && player.isReady) player.setVolume(vol);
+      UI.updateVolumeIcon(vol);
+    };
+    setupVol();
 
-    console.log('✅ YouTube player ready!');
+    // Initialize Media Session API
+    UI.initMediaSession({
+      play: () => handlePlayPause(),
+      pause: () => handlePlayPause(),
+      next: () => handleNext(),
+      prev: () => handlePrevious(), // Changed from handlePrev to handlePrevious to match existing function
+      seek: (offset) => {
+        if (player && player.isReady) {
+          const currentTime = player.getCurrentTime();
+          player.seekTo(currentTime + offset);
+        }
+      }
+    });
+
+    console.log('✅ YouTube player ready!'); // Reverted to original log message
     UI.showNotification('Player đã sẵn sàng!', 2000);
   } catch (error) {
     console.error('⚠️ YouTube player failed to initialize:', error);
@@ -103,18 +122,20 @@ function setupEventListeners() {
   // Search
   const searchBtn = document.getElementById('search-btn');
   const searchInput = document.getElementById('search-input');
+  const searchBtnMobile = document.getElementById('search-btn-mobile');
+  const searchInputMobile = document.getElementById('search-input-mobile');
 
-  if (searchBtn) {
-    searchBtn.addEventListener('click', handleSearch);
-    console.log('✅ Search button listener added');
-  }
+  const addSearchListeners = (btn, input) => {
+    if (btn) btn.addEventListener('click', handleSearch);
+    if (input) {
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleSearch();
+      });
+    }
+  };
 
-  if (searchInput) {
-    searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleSearch();
-    });
-    console.log('✅ Search input listener added');
-  }
+  addSearchListeners(searchBtn, searchInput);
+  addSearchListeners(searchBtnMobile, searchInputMobile);
 
   // Trending Refresh
   const refreshBtn = document.getElementById('trending-refresh-btn');
@@ -124,41 +145,31 @@ function setupEventListeners() {
     });
   }
 
+  // Clear Search / Back button
+  const clearSearchBtn = document.getElementById('clear-search-btn');
+  if (clearSearchBtn) {
+    clearSearchBtn.addEventListener('click', () => {
+      const input = document.getElementById('search-input');
+      const inputMobile = document.getElementById('search-input-mobile');
+      if (input) input.value = '';
+      if (inputMobile) inputMobile.value = '';
+      
+      if (window.search) window.search.currentResults = [];
+      
+      const trendingSection = document.getElementById('trending-section');
+      const resultsSection = document.getElementById('search-results-container-section');
+      if (trendingSection) trendingSection.classList.remove('hidden');
+      if (resultsSection) resultsSection.classList.add('hidden');
+      
+      UI.switchView('search');
+    });
+  }
+
   // Player controls
   const playPauseBtn = document.getElementById('play-pause-btn');
   if (playPauseBtn) {
     playPauseBtn.addEventListener('click', () => {
-      // Handle SoundCloud Widget if it exists and is currently playing a stream
-      const currentTrack = playlist.getCurrentTrack();
-      if (currentTrack && currentTrack.source === 'soundcloud' && scWidget) {
-        scWidget.isPaused((paused) => {
-          if (paused) {
-            scWidget.play();
-          } else {
-            scWidget.pause();
-          }
-        });
-        return;
-      }
-
-      // Handle HTML5 Audio Player for Google Drive and VOH
-      const html5Audio = document.getElementById('html5-audio-player');
-      if (currentTrack && (currentTrack.source === 'googledrive' || currentTrack.isVOH)) {
-        if (html5Audio) {
-          if (html5Audio.paused) {
-            html5Audio.play();
-          } else {
-            html5Audio.pause();
-          }
-        }
-        return;
-      }
-
-      if (player && player.isReady) {
-        player.togglePlayPause();
-      } else {
-        UI.showNotification('Player đang khởi tạo, vui lòng đợi...');
-      }
+      handlePlayPause();
     });
   }
 
@@ -233,7 +244,9 @@ function setupEventListeners() {
 // Handle search
 async function handleSearch() {
   console.log('🔍 Search triggered!');
-  const query = document.getElementById('search-input').value.trim();
+  const input = document.getElementById('search-input');
+  const inputMobile = document.getElementById('search-input-mobile');
+  const query = (input?.value || inputMobile?.value || '').trim();
 
   if (!query) {
     UI.showNotification('Vui lòng nhập từ khóa tìm kiếm');
@@ -244,11 +257,28 @@ async function handleSearch() {
     UI.showNotification('Đang tìm kiếm...');
     console.log('Searching for:', query);
 
+    const resultsSection = document.getElementById('search-results-container-section');
+    if (resultsSection) resultsSection.classList.remove('hidden');
+
+    const trendingSection = document.getElementById('trending-section');
+    if (trendingSection) trendingSection.classList.add('hidden');
+
+    const resultsContainer = document.getElementById('search-results-container');
+    const loadingSpinner = document.getElementById('search-loading');
+    
+    // Show loading, hide old results
+    if (resultsContainer) resultsContainer.innerHTML = '';
+    if (loadingSpinner) loadingSpinner.classList.remove('hidden');
+
     const results = await search.performSearch(query);
     console.log('Search results:', results.length);
 
-    // Hide trending when results are found
-    document.getElementById('trending-section').style.display = 'none';
+    // Hide loading
+    if (loadingSpinner) loadingSpinner.classList.add('hidden');
+
+    const searchView = document.getElementById('search-view');
+    const heroSection = searchView?.querySelector('section.relative');
+    if (heroSection) heroSection.classList.add('hidden');
 
     search.renderResults(results);
     UI.switchView('search');
@@ -382,51 +412,63 @@ function handleDynamicClicks(e) {
   const target = e.target;
 
   // Play button
-  if (target.classList.contains('btn-play')) {
-    const videoId = target.dataset.videoId;
+  const playBtn = target.closest('.btn-play');
+  if (playBtn) {
+    const videoId = playBtn.dataset.videoId;
     let video = getTrendingVideoById(videoId) || search.getVideoById(videoId) || favorites.getFavorites().find(v => v.id === videoId);
     if (video) {
-      handlePlayVideo(video);
+        handlePlayVideo(video);
+        return;
     }
   }
 
   // Add to queue button
-  if (target.classList.contains('btn-add-queue')) {
-    const videoId = target.dataset.videoId;
+  const addQueueBtn = target.closest('.btn-add-queue');
+  if (addQueueBtn) {
+    const videoId = addQueueBtn.dataset.videoId;
     let video = getTrendingVideoById(videoId) || search.getVideoById(videoId) || favorites.getFavorites().find(v => v.id === videoId);
     if (video) {
-      handleAddToQueue(video);
+        handleAddToQueue(video);
+        return;
     }
   }
 
   // Favorite button
-  if (target.classList.contains('btn-favorite')) {
-    const videoId = target.dataset.videoId;
+  const favBtn = target.closest('.btn-favorite');
+  if (favBtn) {
+    const videoId = favBtn.dataset.videoId;
     let video = getTrendingVideoById(videoId) || search.getVideoById(videoId) || favorites.getFavorites().find(v => v.id === videoId);
     if (video) {
-      handleToggleFavorite(video);
+        handleToggleFavorite(video);
+        return;
     }
   }
 
   // Remove favorite button
-  if (target.classList.contains('btn-remove-favorite')) {
-    const videoId = target.dataset.videoId;
+  const removeFavBtn = target.closest('.btn-remove-favorite');
+  if (removeFavBtn) {
+    const videoId = removeFavBtn.dataset.videoId;
     const video = favorites.getFavorites().find(v => v.id === videoId);
     if (video) {
-      handleToggleFavorite(video);
+        handleToggleFavorite(video);
+        return;
     }
   }
 
   // Play from queue
-  if (target.classList.contains('btn-play-queue')) {
-    const index = parseInt(target.dataset.queueIndex);
+  const playQueueBtn = target.closest('.btn-play-queue');
+  if (playQueueBtn) {
+    const index = parseInt(playQueueBtn.dataset.queueIndex);
     handlePlayFromQueue(index);
+    return;
   }
 
   // Remove from queue
-  if (target.classList.contains('btn-remove-queue')) {
-    const index = parseInt(target.dataset.queueIndex);
+  const removeQueueBtn = target.closest('.btn-remove-queue');
+  if (removeQueueBtn) {
+    const index = parseInt(removeQueueBtn.dataset.queueIndex);
     handleRemoveFromQueue(index);
+    return;
   }
 
   // Google Drive play
@@ -480,6 +522,7 @@ function handlePlayVideo(video) {
 // audioPlayer is now deprecated, scWidget takes over.
 async function playInternalTrack(track) {
   UI.updateNowPlaying(track);
+  UI.updateMediaMetadata(track);
   UI.renderQueue(playlist.getQueue(), playlist.currentIndex);
   UI.showNotification('Đang phát: ' + track.title);
 
@@ -570,6 +613,43 @@ async function playInternalTrack(track) {
 
 function stopHTML5Audio() {
   if (scWidget) scWidget.pause();
+}
+
+// Play/Pause handling
+function handlePlayPause() {
+  const currentTrack = playlist.getCurrentTrack();
+  
+  // Handle SoundCloud Widget
+  if (currentTrack && currentTrack.source === 'soundcloud' && scWidget) {
+    scWidget.isPaused((paused) => {
+      if (paused) {
+        scWidget.play();
+      } else {
+        scWidget.pause();
+      }
+    });
+    return;
+  }
+
+  // Handle HTML5 Audio Player for Google Drive and VOH
+  if (currentTrack && (currentTrack.source === 'googledrive' || currentTrack.isVOH)) {
+    const html5Audio = document.getElementById('html5-audio-player');
+    if (html5Audio) {
+      if (html5Audio.paused) {
+        html5Audio.play();
+      } else {
+        html5Audio.pause();
+      }
+    }
+    return;
+  }
+
+  // Handle YouTube Player
+  if (player && player.isReady) {
+    player.togglePlayPause();
+  } else {
+    UI.showNotification('Player đang khởi tạo, vui lòng đợi...');
+  }
 }
 
 // Add video to queue

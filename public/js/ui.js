@@ -46,18 +46,24 @@ const UI = {
    */
   updateProgressBar(currentTime, duration) {
     const progressBar = document.getElementById('progress-bar');
+    const progressBarFill = document.getElementById('progress-bar-fill');
+    const progressBarFillMobile = document.getElementById('progress-bar-fill-mobile');
     const currentTimeLabel = document.getElementById('current-time');
     const durationLabel = document.getElementById('duration');
 
     if (duration > 0) {
       const percentage = (currentTime / duration) * 100;
-      progressBar.value = percentage;
-      currentTimeLabel.textContent = this.formatTime(currentTime);
-      durationLabel.textContent = this.formatTime(duration);
+      if (progressBar) progressBar.value = percentage;
+      if (progressBarFill) progressBarFill.style.width = `${percentage}%`;
+      if (progressBarFillMobile) progressBarFillMobile.style.width = `${percentage}%`;
+      if (currentTimeLabel) currentTimeLabel.textContent = this.formatTime(currentTime);
+      if (durationLabel) durationLabel.textContent = this.formatTime(duration);
     } else {
-      progressBar.value = 0;
-      currentTimeLabel.textContent = '0:00';
-      durationLabel.textContent = '0:00';
+      if (progressBar) progressBar.value = 0;
+      if (progressBarFill) progressBarFill.style.width = '0%';
+      if (progressBarFillMobile) progressBarFillMobile.style.width = '0%';
+      if (currentTimeLabel) currentTimeLabel.textContent = '0:00';
+      if (durationLabel) durationLabel.textContent = '0:00';
     }
   },
 
@@ -66,7 +72,21 @@ const UI = {
    */
   updatePlayPauseButton(isPlaying) {
     const btn = document.getElementById('play-pause-btn');
-    btn.textContent = isPlaying ? '⏸️' : '▶️';
+    const icon = btn.querySelector('.material-symbols-outlined');
+    const thumbContainer = document.getElementById('now-playing-thumb')?.parentElement;
+    
+    if (icon) {
+      icon.textContent = isPlaying ? 'pause' : 'play_arrow';
+    }
+    
+    if (thumbContainer) {
+      if (isPlaying) {
+        thumbContainer.classList.add('animate-spin-slow');
+      } else {
+        thumbContainer.classList.remove('animate-spin-slow');
+      }
+    }
+    
     btn.title = isPlaying ? 'Tạm dừng' : 'Phát';
   },
 
@@ -112,6 +132,11 @@ const UI = {
    */
   updateVolumeIcon(volume) {
     const btn = document.getElementById('volume-btn');
+    const volumeFill = document.getElementById('volume-fill');
+    const volumeSlider = document.getElementById('volume-slider');
+
+    if (volumeFill) volumeFill.style.width = `${volume}%`;
+    if (volumeSlider) volumeSlider.value = volume;
 
     if (volume === 0) {
       btn.textContent = '🔇';
@@ -132,8 +157,12 @@ const UI = {
     document.querySelectorAll('.nav-link').forEach(link => {
       if (link.dataset.view === viewName) {
         link.classList.add('active');
+        link.classList.remove('text-on-surface/60');
+        link.classList.add('text-primary');
       } else {
         link.classList.remove('active');
+        link.classList.add('text-on-surface/60');
+        link.classList.remove('text-primary');
       }
     });
 
@@ -145,6 +174,34 @@ const UI = {
         view.classList.remove('active');
       }
     });
+
+    // Special case for search view components
+    const searchView = document.getElementById('search-view');
+    const heroSection = searchView?.querySelector('section.relative');
+    const searchMobile = searchView?.querySelector('.sm\\:hidden');
+    const trendingSection = document.getElementById('trending-section');
+    const resultsSection = document.getElementById('search-results-container-section');
+    
+    if (viewName !== 'search') {
+      if (heroSection) heroSection.classList.add('hidden');
+      if (searchMobile) searchMobile.classList.add('hidden');
+    } else {
+      // Always keep hero hidden if we want it gone (already removed from HTML, but JS might still try to show it)
+      if (heroSection) heroSection.classList.add('hidden');
+      if (searchMobile) searchMobile.classList.remove('hidden');
+      
+      // Smart Toggle: If there's an active search result, hide trending. Else show trending.
+      const hasResults = window.search && window.search.currentResults && window.search.currentResults.length > 0;
+      const isCurrentlySearching = resultsSection && !resultsSection.classList.contains('hidden');
+
+      if (hasResults && isCurrentlySearching) {
+          if (trendingSection) trendingSection.classList.add('hidden');
+          if (resultsSection) resultsSection.classList.remove('hidden');
+      } else {
+          if (trendingSection) trendingSection.classList.remove('hidden');
+          if (resultsSection) resultsSection.classList.add('hidden');
+      }
+    }
   },
 
   /**
@@ -180,49 +237,37 @@ const UI = {
 
     if (queue.length === 0) {
       container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">📋</div>
+        <div class="py-20 flex flex-col items-center justify-center text-on-surface-variant">
+          <span class="material-symbols-outlined text-6xl mb-4">queue_music</span>
           <p>Danh sách phát trống</p>
         </div>
       `;
       return;
     }
 
-    container.innerHTML = `
-      <div class="bulk-actions-bar queue-bulk-actions">
-        <label class="select-all-label">
-          <input type="checkbox" id="select-all-queue"> Chọn tất cả
-        </label>
-        <button id="delete-selected-queue" class="btn-bulk-delete" disabled>
-          🗑️ Xóa đã chọn (<span class="selected-count">0</span>)
-        </button>
-      </div>
-      <div class="queue-list grid-list">
-        ${queue.map((video, index) => {
-          const isPlaying = index === currentIndex;
-          return `
-            <div class="video-card ${isPlaying ? 'playing' : ''}" data-queue-index="${index}">
-              <div class="bulk-select-container">
-                <input type="checkbox" class="bulk-select-checkbox queue-checkbox" data-queue-index="${index}">
-              </div>
-              <img src="${video.thumbnail}" alt="${video.title}" class="video-thumbnail" onerror="this.style.display='none'">
-              <div class="video-info">
-                <div class="video-title" title="${video.title}">${video.title}</div>
-                <div class="video-channel">${video.channel}</div>
-                <div class="video-actions">
-                  <button class="btn-icon btn-play-queue" data-queue-index="${index}" title="Phát">
-                    ${isPlaying ? '⏸️' : '▶️'}
-                  </button>
-                  <button class="btn-icon btn-remove-queue" data-queue-index="${index}" title="Xóa khỏi danh sách">
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
+    container.innerHTML = queue.map((video, index) => {
+      const isPlaying = index === currentIndex;
+      return `
+        <div class="flex items-center gap-4 bg-surface-container rounded-xl p-3 border ${isPlaying ? 'border-primary/50' : 'border-transparent'} group active:scale-[0.98] transition-all" data-queue-index="${index}">
+          <div class="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden relative">
+            <img src="${video.thumbnail}" alt="${video.title}" class="w-full h-full object-cover">
+            ${isPlaying ? '<div class="absolute inset-0 bg-primary/20 flex items-center justify-center"><div class="w-2 h-2 bg-primary rounded-full animate-ping"></div></div>' : ''}
+          </div>
+          <div class="flex-1 min-w-0">
+            <h4 class="font-bold text-on-surface truncate">${video.title}</h4>
+            <p class="text-primary text-xs font-semibold uppercase tracking-wider">${video.channel}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary btn-play-queue" data-queue-index="${index}">
+              <span class="material-symbols-outlined">${isPlaying ? 'pause' : 'play_arrow'}</span>
+            </button>
+            <button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-error btn-remove-queue" data-queue-index="${index}">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
   },
 
   /**
@@ -234,8 +279,8 @@ const UI = {
 
     if (!videos || videos.length === 0) {
       container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">🔥</div>
+        <div class="col-span-2 py-20 flex flex-col items-center justify-center text-on-surface-variant">
+          <span class="material-symbols-outlined text-6xl mb-4">error</span>
           <p>Hiện tại không có bài hát hot nào</p>
         </div>
       `;
@@ -245,19 +290,28 @@ const UI = {
     container.innerHTML = videos.map(video => {
       const escapedTitle = this.escapeHtml(video.title);
       return `
-        <div class="video-card" data-video-id="${video.id}">
-          <div class="video-thumbnail-container">
-            <img src="${video.thumbnail}" alt="${escapedTitle}" class="video-thumbnail" onerror="this.src='/img/placeholder.png'">
-            <span class="video-duration">${video.duration}</span>
-            <button class="btn-play-overlay btn-play" data-video-id="${video.id}" title="Phát ngay">▶️</button>
+        <div class="space-y-3 group cursor-pointer" data-video-id="${video.id}">
+          <div class="aspect-square rounded-xl overflow-hidden relative bg-surface-container-high shadow-lg btn-play" data-video-id="${video.id}">
+            <img src="${video.thumbnail}" alt="${escapedTitle}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+            <div class="absolute inset-0 bg-black/40 opacity-0 lg:group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-on-primary">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+              </div>
+            </div>
+            <div class="absolute bottom-2 right-2 px-2 py-1 bg-black/60 rounded text-[10px] font-bold text-white backdrop-blur-sm">${video.duration}</div>
           </div>
-          <div class="video-info">
-            <div class="video-title" title="${escapedTitle}">${video.title}</div>
-            <div class="video-channel">${video.channel}</div>
-            <div class="video-actions">
-              <button class="btn-icon btn-play" data-video-id="${video.id}" title="Phát ngay">▶️</button>
-              <button class="btn-icon btn-add-queue" data-video-id="${video.id}" title="Thêm vào danh sách phát">➕</button>
-              <button class="btn-icon btn-favorite" data-video-id="${video.id}" title="Thêm vào yêu thích">❤️</button>
+          <div class="px-1">
+            <h4 class="font-bold text-on-surface leading-tight truncate btn-play" data-video-id="${video.id}">${video.title}</h4>
+            <div class="flex justify-between items-center mt-1">
+                <p class="text-on-surface-variant text-[11px] font-medium truncate flex-1 uppercase tracking-wider">${video.channel}</p>
+                <div class="flex gap-1 ml-2">
+                    <button class="p-1 text-on-surface-variant hover:text-primary btn-add-queue" data-video-id="${video.id}">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                    </button>
+                    <button class="p-1 text-on-surface-variant hover:text-primary btn-favorite" data-video-id="${video.id}">
+                        <span class="material-symbols-outlined text-sm">favorite</span>
+                    </button>
+                </div>
             </div>
           </div>
         </div>
@@ -274,46 +328,39 @@ const UI = {
 
     if (!files || files.length === 0) {
       container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">📂</div>
-          <p>Không tìm thấy file nhạc nào trên Google Drive của bạn.</p>
-          <p style="font-size: 0.8em; margin-top: 10px;">Hãy đảm bảo bạn đã chia sẻ thư mục nhạc cho email của Service Account.</p>
+        <div class="py-20 flex flex-col items-center justify-center text-on-surface-variant">
+          <span class="material-symbols-outlined text-6xl mb-4">folder_open</span>
+          <p>Không tìm thấy file nhạc nào trên Google Drive.</p>
         </div>
       `;
       return;
     }
 
-    container.innerHTML = `
-      <div class="drive-table-container">
-        <table class="drive-table">
-          <thead>
-            <tr>
-              <th>Tên bài hát</th>
-              <th style="width: 100px;">Lượt nghe</th>
-              <th style="width: 120px; text-align: right;">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${files.map(file => {
-              const escapedTitle = this.escapeHtml(file.title);
-              return `
-                <tr class="drive-track-item" data-video-id="${file.id}">
-                  <td class="drive-track-name" title="${escapedTitle}">${file.title}</td>
-                  <td class="drive-track-plays">0</td>
-                  <td>
-                    <div class="drive-track-actions">
-                      <button class="drive-btn-table btn-play-drive" data-file-id="${file.id}" title="Phát ngay">▶️</button>
-                      <button class="drive-btn-table btn-add-queue-drive" data-file-id="${file.id}" title="Thêm vào danh sách phát">➕</button>
-                      <a href="/api/google-drive/stream/${file.id}?download=1" class="drive-btn-table btn-download-drive" title="Tải về" download style="display:inline-block; text-decoration:none; text-align:center;">⬇️</a>
-                    </div>
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
+    container.innerHTML = files.map(file => {
+      const escapedTitle = this.escapeHtml(file.title);
+      return `
+        <div class="flex items-center gap-4 bg-surface-container rounded-xl p-3 border border-transparent hover:border-primary/30 group active:scale-[0.98] transition-all" data-video-id="${file.id}">
+          <div class="w-12 h-12 flex-shrink-0 bg-primary/10 rounded-lg flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors">
+            <span class="material-symbols-outlined">music_note</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h4 class="font-bold text-on-surface truncate">${file.title}</h4>
+            <p class="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">Google Drive</p>
+          </div>
+          <div class="flex items-center gap-1">
+            <button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary btn-play-drive" data-file-id="${file.id}">
+              <span class="material-symbols-outlined">play_arrow</span>
+            </button>
+            <button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary btn-add-queue-drive" data-file-id="${file.id}">
+              <span class="material-symbols-outlined">add</span>
+            </button>
+            <a href="/api/google-drive/stream/${file.id}?download=1" class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary" download>
+              <span class="material-symbols-outlined">download</span>
+            </a>
+          </div>
+        </div>
+      `;
+    }).join('');
   },
 
   /**
@@ -337,8 +384,8 @@ const UI = {
 
     if (!episodes || episodes.length === 0) {
       container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">🍃</div>
+        <div class="col-span-2 py-20 flex flex-col items-center justify-center text-on-surface-variant">
+          <span class="material-symbols-outlined text-6xl mb-4">mail</span>
           <p>Hiện tại không có lá thư xanh nào</p>
         </div>
       `;
@@ -348,17 +395,27 @@ const UI = {
     container.innerHTML = episodes.map(episode => {
       const escapedTitle = this.escapeHtml(episode.title);
       return `
-        <div class="video-card voh-card" data-voh-url="${episode.url}">
-          <div class="video-thumbnail-container">
-            <img src="${episode.thumbnail}" alt="${escapedTitle}" class="video-thumbnail" onerror="this.src='/img/voh-placeholder.png'">
-            <button class="btn-play-overlay btn-play-voh" data-voh-url="${episode.url}" title="Phát ngay">▶️</button>
+        <div class="space-y-3 group cursor-pointer" data-voh-url="${episode.url}">
+          <div class="aspect-square rounded-xl overflow-hidden relative bg-surface-container-high shadow-lg">
+            <img src="${episode.thumbnail}" alt="${escapedTitle}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-on-primary btn-play-voh" data-voh-url="${episode.url}">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+              </div>
+            </div>
+            <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                <span class="text-[10px] font-bold text-primary uppercase tracking-widest">Lá thư xanh</span>
+            </div>
           </div>
-          <div class="video-info">
-            <div class="video-title" title="${escapedTitle}">${episode.title}</div>
-            <div class="video-channel">${episode.channel}</div>
-            <div class="video-actions">
-              <button class="btn-icon btn-play-voh" data-voh-url="${episode.url}" title="Phát ngay">▶️</button>
-              <button class="btn-icon btn-add-queue-voh" data-voh-url="${episode.url}" title="Thêm vào danh sách phát">➕</button>
+          <div class="px-1">
+            <h4 class="font-bold text-on-surface leading-tight truncate btn-play-voh" data-voh-url="${episode.url}">${episode.title}</h4>
+            <div class="flex justify-between items-center mt-1">
+                <p class="text-on-surface-variant text-[11px] font-medium truncate flex-1 uppercase tracking-wider">${episode.channel}</p>
+                <div class="flex gap-1 ml-2">
+                    <button class="p-1 text-on-surface-variant hover:text-primary btn-add-queue-voh" data-voh-url="${episode.url}">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                    </button>
+                </div>
             </div>
           </div>
         </div>
@@ -377,6 +434,52 @@ const UI = {
       "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, m => map[m]);
+  },
+  /**
+   * Update browser Media Session metadata
+   */
+  updateMediaMetadata(track) {
+    if ('mediaSession' in navigator && track) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title,
+        artist: track.channel || 'YourMusic',
+        album: 'YourMusic',
+        artwork: [
+          { src: track.thumbnail, sizes: '96x96', type: 'image/png' },
+          { src: track.thumbnail, sizes: '128x128', type: 'image/png' },
+          { src: track.thumbnail, sizes: '192x192', type: 'image/png' },
+          { src: track.thumbnail, sizes: '256x256', type: 'image/png' },
+          { src: track.thumbnail, sizes: '384x384', type: 'image/png' },
+          { src: track.thumbnail, sizes: '512x512', type: 'image/png' },
+        ]
+      });
+    }
+  },
+  /**
+   * Initialize Media Session action handlers
+   */
+  initMediaSession(handlers) {
+    if ('mediaSession' in navigator) {
+      const actions = [
+        ['play', handlers.play],
+        ['pause', handlers.pause],
+        ['previoustrack', handlers.prev],
+        ['nexttrack', handlers.next],
+        ['seekbackward', (details) => handlers.seek && handlers.seek(Math.max((details.seekOffset || 10) * -1, 0))],
+        ['seekforward', (details) => handlers.seek && handlers.seek(details.seekOffset || 10)],
+        ['seekto', (details) => handlers.seekTo && handlers.seekTo(details.seekTime)]
+      ];
+
+      for (const [action, handler] of actions) {
+        try {
+          if (handler) {
+            navigator.mediaSession.setActionHandler(action, handler);
+          }
+        } catch (error) {
+          console.warn(`The media session action "${action}" is not supported yet.`);
+        }
+      }
+    }
   }
 };
 

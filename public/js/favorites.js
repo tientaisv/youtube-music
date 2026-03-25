@@ -138,27 +138,15 @@ class Favorites {
 
     if (this.favorites.length === 0) {
       container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">❤️</div>
+        <div class="col-span-2 py-20 flex flex-col items-center justify-center text-on-surface-variant">
+          <span class="material-symbols-outlined text-6xl mb-4">favorite</span>
           <p>Chưa có bài hát yêu thích</p>
         </div>
       `;
       return;
     }
 
-    container.innerHTML = `
-      <div class="bulk-actions-bar favorites-bulk-actions">
-        <label class="select-all-label">
-          <input type="checkbox" id="select-all-favorites"> Chọn tất cả
-        </label>
-        <button id="delete-selected-favorites" class="btn-bulk-delete" disabled>
-          🗑️ Xóa đã chọn (<span class="selected-count">0</span>)
-        </button>
-      </div>
-      <div class="favorites-grid results-container">
-        ${this.favorites.map(video => this.createFavoriteCard(video)).join('')}
-      </div>
-    `;
+    container.innerHTML = this.favorites.map(video => this.createFavoriteCard(video)).join('');
   }
 
   /**
@@ -167,27 +155,30 @@ class Favorites {
   createFavoriteCard(video) {
     const escapedTitle = video.title.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     return `
-      <div class="video-card favorite-card" data-video-id="${video.id}">
-        <div class="bulk-select-container">
-          <input type="checkbox" class="bulk-select-checkbox fav-checkbox" data-video-id="${video.id}">
+      <div class="space-y-3 group cursor-pointer" data-video-id="${video.id}">
+        <div class="aspect-square rounded-xl overflow-hidden relative bg-surface-container-high shadow-lg">
+          <img src="${video.thumbnail}" alt="${escapedTitle}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+          <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-on-primary btn-play" data-video-id="${video.id}">
+              <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+            </div>
+          </div>
         </div>
-        <img src="${video.thumbnail}" alt="${video.title}" class="video-thumbnail" onerror="this.style.display='none'">
-        <div class="video-info">
-          <div class="video-title" title="${video.title}">${video.title}</div>
-          <div class="video-channel">${video.channel}</div>
-          <div class="video-actions">
-            <button class="btn-icon btn-play" data-video-id="${video.id}" title="Phát ngay">
-              ▶️
-            </button>
-            <button class="btn-icon btn-add-queue" data-video-id="${video.id}" title="Thêm vào danh sách phát">
-              ➕
-            </button>
-            <button class="btn-icon btn-remove-favorite active" data-video-id="${video.id}" title="Xóa khỏi yêu thích">
-              ❤️
-            </button>
-            <button class="btn-icon btn-download" data-video-id="${video.id}" data-video-title="${escapedTitle}" title="Tải xuống">
-              ⬇️
-            </button>
+        <div class="px-1">
+          <h4 class="font-bold text-on-surface leading-tight truncate btn-play" data-video-id="${video.id}">${video.title}</h4>
+          <div class="flex justify-between items-center mt-1">
+              <p class="text-on-surface-variant text-[11px] font-medium truncate flex-1 uppercase tracking-wider">${video.channel}</p>
+              <div class="flex gap-1 ml-2">
+                  <button class="p-1 text-on-surface-variant hover:text-primary btn-add-queue" data-video-id="${video.id}">
+                      <span class="material-symbols-outlined text-sm">add</span>
+                  </button>
+                  <button class="p-1 text-primary btn-remove-favorite active" data-video-id="${video.id}">
+                      <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">favorite</span>
+                  </button>
+                  <button class="p-1 text-on-surface-variant hover:text-primary btn-download" data-video-id="${video.id}" data-video-title="${escapedTitle}">
+                      <span class="material-symbols-outlined text-sm">download</span>
+                  </button>
+              </div>
           </div>
         </div>
       </div>

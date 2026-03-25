@@ -1093,6 +1093,10 @@ div#queue-container {
     .trending-actions {
         opacity: 1;
     }
+
+    div#search-results-container .grid-cols-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 480px) {
@@ -1103,6 +1107,10 @@ div#queue-container {
 
     .trending-song-title {
         font-size: 13px;
+    }
+
+    div#search-results-container .grid-cols-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -1300,4 +1308,40 @@ div#mymusic-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 20px;
+}
+
+/* Search Results Optimization */
+div#search-results-container {
+    grid-template-columns: 1fr !important; /* One column for the layout structure */
+}
+
+div#search-results-container .grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important; /* 2 columns on mobile */
+    gap: 16px;
+}
+
+/* Improve Card Touch Interaction */
+.view .group {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+@media (max-width: 1023px) {
+    /* Always show a subtle play indication or clear tap area on mobile */
+    .btn-play {
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* If we want the overlay always hidden but the tap to work immediately, 
+       we keep the opacity-0 but ensure it doesn't INTERCEPT clicks in a weird way.
+       Actually, making it clickable via .closest() already fixed the logic.
+    */
+}
+
+@media (min-width: 1024px) {
+    div#search-results-container .grid-cols-2 {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important; /* 4 columns on desktop */
+        gap: 24px;
+    }
 }
