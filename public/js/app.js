@@ -6,6 +6,7 @@ let favorites;
 let progressUpdateInterval;
 let trendingVideos = []; // Store trending videos
 let vohEpisodes = []; // Store VOH episodes
+let driveMusicFiles = []; // Store Drive music files
 let scWidget = null;
 
 // Setup event listeners IMMEDIATELY (don't wait for anything)
@@ -49,6 +50,9 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }, 500);
   }
+
+  // Check for shared links
+  checkInitialShareLink();
 });
 
 // Initialize YouTube Player (async, won't block UI)
@@ -348,10 +352,21 @@ function getTrendingVideoById(id) {
 
 async function loadMyMusic() {
   console.log('Loading music from Google Drive...');
+  const container = document.getElementById('mymusic-container');
+  if (container) {
+    container.innerHTML = `
+      <div class="py-20 flex flex-col items-center justify-center text-on-surface-variant">
+        <div class="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+        <p>Đang tải bộ sưu tập của bạn...</p>
+      </div>
+    `;
+  }
+  
   try {
     const response = await fetch('/api/google-drive/files');
     const data = await response.json();
     if (data.success) {
+      driveMusicFiles = data.data; // Store for quick access
       UI.renderDriveMusic(data.data);
     } else {
       throw new Error(data.error || 'Failed to fetch files');
@@ -359,6 +374,15 @@ async function loadMyMusic() {
   } catch (error) {
     console.error('Failed to load My Music:', error);
     UI.showNotification('Lỗi tải nhạc từ Drive: ' + error.message);
+    if (container) {
+      container.innerHTML = `
+        <div class="py-20 flex flex-col items-center justify-center text-on-surface-variant">
+          <span class="material-symbols-outlined text-6xl mb-4 text-error">error</span>
+          <p>Không thể tải nhạc: ${error.message}</p>
+          <button onclick="loadMyMusic()" class="mt-4 px-6 py-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-all">Thử lại</button>
+        </div>
+      `;
+    }
   }
 }
 
@@ -472,35 +496,100 @@ function handleDynamicClicks(e) {
   }
 
   // Google Drive play
-  if (target.classList.contains('btn-play-drive')) {
-    const fileId = target.dataset.fileId;
-    fetch(`/api/google-drive/files`).then(res => res.json()).then(data => {
-      const file = data.data.find(f => f.id === fileId);
-      if (file) handlePlayVideo(file);
-    });
+  const playDriveBtn = target.closest('.btn-play-drive');
+  if (playDriveBtn) {
+    const fileId = playDriveBtn.dataset.fileId;
+    UI.showNotification('Đang tải bài hát từ Drive...');
+    
+    // Check if we already have the file data in memory
+    const existingFile = driveMusicFiles.find(f => f.id === fileId);
+    if (existingFile) {
+        handlePlayVideo(existingFile);
+    } else {
+        // Fallback to fetch if not found
+        fetch(`/api/google-drive/files`).then(res => res.json()).then(data => {
+          if (data.success) {
+              driveMusicFiles = data.data;
+              const file = data.data.find(f => f.id === fileId);
+              if (file) handlePlayVideo(file);
+          }
+        }).catch(err => {
+            UI.showNotification('Lỗi khi tải bài hát: ' + err.message);
+        });
+    }
+    return;
   }
 
   // Google Drive add to queue
-  if (target.classList.contains('btn-add-queue-drive')) {
-    const fileId = target.dataset.fileId;
-    fetch(`/api/google-drive/files`).then(res => res.json()).then(data => {
-      const file = data.data.find(f => f.id === fileId);
-      if (file) handleAddToQueue(file);
-    });
+  const addQueueDriveBtn = target.closest('.btn-add-queue-drive');
+  if (addQueueDriveBtn) {
+    const fileId = addQueueDriveBtn.dataset.fileId;
+    UI.showNotification('Đang thêm vào hàng chờ...');
+    
+    const existingFile = driveMusicFiles.find(f => f.id === fileId);
+    if (existingFile) {
+        handleAddToQueue(existingFile);
+    } else {
+        fetch(`/api/google-drive/files`).then(res => res.json()).then(data => {
+          if (data.success) {
+              driveMusicFiles = data.data;
+              const file = data.data.find(f => f.id === fileId);
+              if (file) handleAddToQueue(file);
+          }
+        });
+    }
+    return;
   }
 
   // VOH play
-  if (target.classList.contains('btn-play-voh')) {
-    const url = target.dataset.vohUrl;
+  const playVohBtn = target.closest('.btn-play-voh');
+  if (playVohBtn) {
+    const url = playVohBtn.dataset.vohUrl;
     const track = getVOHTrackByUrl(url);
     if (track) handlePlayVideo(track);
+    return;
   }
 
   // VOH add to queue
-  if (target.classList.contains('btn-add-queue-voh')) {
-    const url = target.dataset.vohUrl;
+  const addQueueVohBtn = target.closest('.btn-add-queue-voh');
+  if (addQueueVohBtn) {
+    const url = addQueueVohBtn.dataset.vohUrl;
     const track = getVOHTrackByUrl(url);
     if (track) handleAddToQueue(track);
+    return;
+  }
+
+  // Google Drive share
+  const shareDriveBtn = target.closest('.btn-share-drive');
+  if (shareDriveBtn) {
+    const fileId = shareDriveBtn.dataset.fileId;
+    const shareUrl = `${window.location.origin}${window.location.pathname}?play=${fileId}&source=googledrive`;
+    
+    // Copy to clipboard
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            UI.showTooltip(shareDriveBtn, 'Đã copy');
+            UI.showNotification('Đã sao chép link chia sẻ vào bộ nhớ tạm!');
+        }).catch(err => {
+            console.error('Failed to copy share link:', err);
+            UI.showNotification('Không thể sao chép link: ' + err.message);
+        });
+    } else {
+        // Fallback for non-secure contexts
+        const textArea = document.createElement("textarea");
+        textArea.value = shareUrl;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            UI.showTooltip(shareDriveBtn, 'Đã copy');
+            UI.showNotification('Đã sao chép link chia sẻ!');
+        } catch (err) {
+            UI.showNotification('Không thể sao chép link');
+        }
+        document.body.removeChild(textArea);
+    }
+    return;
   }
 }
 
@@ -521,6 +610,9 @@ function handlePlayVideo(video) {
 
 // audioPlayer is now deprecated, scWidget takes over.
 async function playInternalTrack(track) {
+  // Stop all other players first to prevent simultaneous playback
+  stopAllPlayers();
+  
   UI.updateNowPlaying(track);
   UI.updateMediaMetadata(track);
   UI.renderQueue(playlist.getQueue(), playlist.currentIndex);
@@ -528,8 +620,6 @@ async function playInternalTrack(track) {
 
   if (track.source === 'soundcloud') {
     // SoundCloud
-    if (player) player.pause();
-    
     try {
       if (!scWidget) throw new Error('SoundCloud Player chưa sẵn sàng');
       
@@ -561,9 +651,6 @@ async function playInternalTrack(track) {
     }
   } else if (track.source === 'googledrive') {
     // Google Drive
-    if (player) player.pause();
-    if (scWidget) scWidget.pause();
-
     const html5Audio = document.getElementById('html5-audio-player');
     html5Audio.src = `/api/google-drive/stream/${track.id}`;
     html5Audio.volume = (localStorage.getItem('volume') || 50) / 100;
@@ -576,12 +663,6 @@ async function playInternalTrack(track) {
     html5Audio.onended = () => handleNext();
   } else if (track.isVOH) {
     // VOH Radio
-    if (player) player.pause();
-    if (scWidget) scWidget.pause();
-    
-    const html5Audio = document.getElementById('html5-audio-player');
-    if (html5Audio) html5Audio.pause();
-
     UI.showNotification('Đang trích xuất link âm thanh VOH...');
     try {
         const res = await fetch(`/api/voh/audio?url=${encodeURIComponent(track.url)}`);
@@ -611,8 +692,28 @@ async function playInternalTrack(track) {
   }
 }
 
-function stopHTML5Audio() {
-  if (scWidget) scWidget.pause();
+function stopAllPlayers() {
+  // Pause YouTube
+  if (player && player.isReady) {
+    player.pause();
+  }
+  
+  // Pause SoundCloud
+  if (scWidget) {
+    try {
+      scWidget.pause();
+    } catch (e) {
+      console.warn("SoundCloud pause failed:", e);
+    }
+  }
+  
+  // Pause HTML5 Audio (Google Drive, VOH)
+  const html5Audio = document.getElementById('html5-audio-player');
+  if (html5Audio) {
+    html5Audio.pause();
+    html5Audio.src = ""; // Clear source to stop buffering
+    html5Audio.load();
+  }
 }
 
 // Play/Pause handling
@@ -940,3 +1041,35 @@ document.addEventListener('click', async (e) => {
         }
     }
 });
+
+// Check for shared link parameters
+async function checkInitialShareLink() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const playId = urlParams.get('play');
+  const source = urlParams.get('source');
+
+  if (playId && source === 'googledrive') {
+    UI.showNotification('Đang tải bài hát được chia sẻ...');
+    try {
+      const response = await fetch(`/api/google-drive/file/${playId}`);
+      const data = await response.json();
+      if (data.success) {
+        // Wait for player to be ready
+        const checkPlayer = setInterval(() => {
+          if (player && player.isReady) {
+            handlePlayVideo(data.data);
+            clearInterval(checkPlayer);
+            // Clear URL params without reloading
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }, 500);
+        
+        // Timeout after 15s
+        setTimeout(() => clearInterval(checkPlayer), 15000);
+      }
+    } catch (error) {
+      console.error('Failed to load shared track:', error);
+      UI.showNotification('Không thể tải bài hát được chia sẻ');
+    }
+  }
+}

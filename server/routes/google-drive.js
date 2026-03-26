@@ -93,4 +93,32 @@ router.get('/stream/:fileId', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/google-drive/file/:fileId
+ * Lấy thông tin chi tiết của một file âm thanh.
+ */
+router.get('/file/:fileId', async (req, res) => {
+  const fileId = req.params.fileId;
+  try {
+    const response = await drive.files.get({
+      fileId: fileId,
+      fields: 'id, name, mimeType, size, webViewLink, thumbnailLink',
+    });
+
+    const file = {
+      id: response.data.id,
+      title: response.data.name,
+      artist: 'Google Drive',
+      thumbnail: response.data.thumbnailLink || '/img/default-audio.png',
+      source: 'googledrive',
+      mimeType: response.data.mimeType
+    };
+
+    res.json({ success: true, data: file });
+  } catch (error) {
+    console.error('Google Drive API Error (get):', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

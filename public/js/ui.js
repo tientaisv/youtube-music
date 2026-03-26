@@ -10,6 +10,9 @@ const UI = {
     const channel = document.getElementById('now-playing-channel');
     const favoriteBtn = document.getElementById('favorite-current-btn');
 
+    // Default Vinyl Disc SVG
+    const defaultThumb = 'data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTAwIDEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0iIzEyMTIxMiIgc3Ryb2tlPSIjMzMzIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSIyMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjIyIiBzdHJva2Utd2lkdGg9IjEiLz4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSIzMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjIyIiBzdHJva2Utd2lkdGg9IjEiLz4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjIyIiBzdHJva2Utd2lkdGg9IjEiLz4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI4IiBmaWxsPSIjNzdmZjkyIi8+CiAgPGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMiIgZmlsbD0iIzAwMzkxNCIvPgo8L3N2Zz4=';
+
     if (video) {
       // Load thumbnail with fallback
       if (video.thumbnail) {
@@ -19,12 +22,14 @@ const UI = {
 
         // Handle image load error
         thumb.onerror = function() {
-          thumb.classList.remove('loaded');
-          placeholder.classList.remove('hidden');
+          thumb.src = defaultThumb;
+          thumb.classList.add('loaded');
+          placeholder.classList.add('hidden');
         };
       } else {
-        thumb.classList.remove('loaded');
-        placeholder.classList.remove('hidden');
+        thumb.src = defaultThumb;
+        thumb.classList.add('loaded');
+        placeholder.classList.add('hidden');
       }
 
       title.textContent = video.title || 'Không có tiêu đề';
@@ -32,9 +37,9 @@ const UI = {
       favoriteBtn.style.display = 'block';
       favoriteBtn.dataset.videoId = video.id;
     } else {
-      thumb.src = '';
-      thumb.classList.remove('loaded');
-      placeholder.classList.remove('hidden');
+      thumb.src = defaultThumb;
+      thumb.classList.add('loaded');
+      placeholder.classList.add('hidden');
       title.textContent = 'Chưa phát bài nào';
       channel.textContent = '';
       favoriteBtn.style.display = 'none';
@@ -354,6 +359,9 @@ const UI = {
             <button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary btn-add-queue-drive" data-file-id="${file.id}">
               <span class="material-symbols-outlined">add</span>
             </button>
+            <button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary btn-share-drive" data-file-id="${file.id}" title="Chia sẻ">
+              <span class="material-symbols-outlined">share</span>
+            </button>
             <a href="/api/google-drive/stream/${file.id}?download=1" class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary" download>
               <span class="material-symbols-outlined">download</span>
             </a>
@@ -480,6 +488,42 @@ const UI = {
         }
       }
     }
+  },
+  /**
+   * Show a temporary tooltip near an element
+   */
+  showTooltip(element, text, duration = 2000) {
+    // Remove existing tooltips if any
+    const existing = document.querySelectorAll('.custom-tooltip');
+    existing.forEach(t => t.remove());
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'custom-tooltip fixed z-[100] bg-primary text-on-primary px-3 py-1 rounded-full text-xs font-bold shadow-lg pointer-events-none transition-all opacity-0 translate-y-2';
+    tooltip.textContent = text;
+    
+    document.body.appendChild(tooltip);
+
+    // Position the tooltip
+    const rect = element.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    
+    const top = rect.top - tooltipRect.height - 10;
+    const left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+    
+    tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${left}px`;
+    
+    // Show with animation
+    requestAnimationFrame(() => {
+      tooltip.classList.remove('opacity-0', 'translate-y-2');
+      tooltip.classList.add('opacity-100', 'translate-y-0');
+    });
+
+    // Hide and remove
+    setTimeout(() => {
+      tooltip.classList.add('opacity-0', 'translate-y-[-10px]');
+      setTimeout(() => tooltip.remove(), 300);
+    }, duration);
   }
 };
 
