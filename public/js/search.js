@@ -178,6 +178,9 @@ class Search {
                   <button class="p-1 text-on-surface-variant hover:text-primary btn-favorite" data-video-id="${video.id}">
                       <span class="material-symbols-outlined text-sm">favorite</span>
                   </button>
+                  <button class="p-1 text-on-surface-variant hover:text-primary btn-download" data-video-id="${video.id}" data-video-title="${escapedTitle}" title="Tải MP3">
+                      <span class="material-symbols-outlined text-sm">download</span>
+                  </button>
               </div>
           </div>
         </div>
@@ -191,7 +194,57 @@ class Search {
   getVideoById(videoId) {
     return this.currentResults.find(v => v.id === videoId);
   }
+
+  /**
+   * Fetch suggestions from backend
+   */
+  async getSuggestions(query) {
+    if (!query || query.trim() === '') return [];
+    try {
+      const response = await fetch(`/api/search/suggest?q=${encodeURIComponent(query)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to fetch suggestions');
+      return data.data || [];
+    } catch (error) {
+      console.error('Fetch suggestions error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Render suggestions to the specified container
+   */
+  renderSuggestions(suggestions, containerSelector, onSelectCallback) {
+    const container = document.querySelector(containerSelector);
+    if (!container) return;
+
+    if (suggestions.length === 0) {
+      container.innerHTML = '';
+      container.classList.add('hidden');
+      return;
+    }
+
+    container.innerHTML = suggestions.map((suggestion, index) => {
+      return `
+        <div class="suggestion-item p-3 hover:bg-primary/10 hover:text-primary cursor-pointer flex items-center gap-3 transition-colors text-sm text-on-surface" data-index="${index}" data-value="${suggestion.replace(/"/g, '&quot;')}">
+          <span class="material-symbols-outlined text-sm text-on-surface-variant">search</span>
+          <span class="truncate">${suggestion}</span>
+        </div>
+      `;
+    }).join('');
+
+    container.classList.remove('hidden');
+
+    // Add click listeners to items
+    container.querySelectorAll('.suggestion-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        const val = item.dataset.value;
+        if (onSelectCallback) onSelectCallback(val);
+      });
+    });
+  }
 }
 
 // Export to global scope
 window.Search = Search;
+

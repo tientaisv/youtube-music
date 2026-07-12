@@ -14,6 +14,7 @@ services:
       - ./public:/app/public
       - ./server:/app/server
       - ./algebraic-craft-750-1b192dd8e8a2.json:/app/algebraic-craft-750-1b192dd8e8a2.json
+      - ./.env:/app/.env
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8089/api/health"]

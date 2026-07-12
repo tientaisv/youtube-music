@@ -20,6 +20,8 @@ app.use('/api/video', require('./routes/video'));
 app.use('/api/favorites', require('./routes/favorites'));
 app.use('/api/download', require('./routes/download'));
 app.use('/api/trending', require('./routes/trending'));
+app.use('/api/new-releases', require('./routes/new-releases'));
+app.use('/api/lyrics', require('./routes/lyrics'));
 app.use('/api/soundcloud', require('./routes/soundcloud'));
 app.use('/api/google-drive', require('./routes/google-drive'));
 app.use('/api/voh', require('./routes/voh'));

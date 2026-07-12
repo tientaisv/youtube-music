@@ -1,6 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const youtubeService = require('../services/youtube');
+const axios = require('axios');
+
+// Get search suggestions
+router.get('/suggest', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const response = await axios.get(`https://suggestqueries.google.com/complete/search`, {
+      params: {
+        client: 'firefox',
+        ds: 'yt',
+        q: q
+      },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+
+    const suggestions = response.data[1] || [];
+    res.json({ success: true, data: suggestions });
+  } catch (error) {
+    console.error('Suggest error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Search videos
 router.get('/', async (req, res) => {

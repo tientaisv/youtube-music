@@ -5,6 +5,9 @@ let search;
 let favorites;
 let progressUpdateInterval;
 let trendingVideos = []; // Store trending videos
+let newReleasesVideos = []; // Store new releases videos
+let currentHomeTab = 'hot'; // 'hot' or 'new'
+let currentLyricsData = null; // Store current track lyrics
 let vohEpisodes = []; // Store VOH episodes
 let driveMusicFiles = []; // Store Drive music files
 let scWidget = null;
@@ -121,6 +124,100 @@ async function initializeYouTubePlayer() {
   }
 }
 
+// Helper function for debouncing input calls
+function debounce(func, wait) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
+
+// Set up search suggestions for an input element
+function setupAutocomplete(inputEl, suggestionsElSelector) {
+  if (!inputEl) return;
+
+  const suggestionsEl = document.querySelector(suggestionsElSelector);
+  let selectedIndex = -1;
+  let currentSuggestions = [];
+
+  const hideSuggestions = () => {
+    setTimeout(() => {
+      if (suggestionsEl) suggestionsEl.classList.add('hidden');
+      selectedIndex = -1;
+    }, 200); // 200ms delay to allow click event to register
+  };
+
+  // Debounced fetch & render
+  const handleInput = debounce(async () => {
+    const query = inputEl.value.trim();
+    if (!query) {
+      if (suggestionsEl) suggestionsEl.classList.add('hidden');
+      currentSuggestions = [];
+      selectedIndex = -1;
+      return;
+    }
+
+    currentSuggestions = await search.getSuggestions(query);
+    selectedIndex = -1;
+    
+    search.renderSuggestions(currentSuggestions, suggestionsElSelector, (value) => {
+      inputEl.value = value;
+      handleSearch();
+      if (suggestionsEl) suggestionsEl.classList.add('hidden');
+    });
+  }, 250);
+
+  inputEl.addEventListener('input', handleInput);
+  inputEl.addEventListener('blur', hideSuggestions);
+  inputEl.addEventListener('focus', () => {
+    const query = inputEl.value.trim();
+    if (query && currentSuggestions.length > 0) {
+      if (suggestionsEl) suggestionsEl.classList.remove('hidden');
+    }
+  });
+
+  // Keyboard navigation
+  inputEl.addEventListener('keydown', (e) => {
+    if (!suggestionsEl || suggestionsEl.classList.contains('hidden')) return;
+
+    const items = suggestionsEl.querySelectorAll('.suggestion-item');
+    if (items.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex + 1) % items.length;
+      updateSelection(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+      updateSelection(items);
+    } else if (e.key === 'Enter') {
+      if (selectedIndex >= 0 && selectedIndex < items.length) {
+        e.preventDefault();
+        const selectedValue = items[selectedIndex].dataset.value;
+        inputEl.value = selectedValue;
+        handleSearch();
+        suggestionsEl.classList.add('hidden');
+      }
+    } else if (e.key === 'Escape') {
+      suggestionsEl.classList.add('hidden');
+      inputEl.blur();
+    }
+  });
+
+  const updateSelection = (items) => {
+    items.forEach((item, index) => {
+      if (index === selectedIndex) {
+        item.classList.add('bg-primary/20', 'text-primary');
+        item.scrollIntoView({ block: 'nearest' });
+      } else {
+        item.classList.remove('bg-primary/20', 'text-primary');
+      }
+    });
+  };
+}
+
 // Setup all event listeners
 function setupEventListeners() {
   // Search
@@ -140,12 +237,126 @@ function setupEventListeners() {
 
   addSearchListeners(searchBtn, searchInput);
   addSearchListeners(searchBtnMobile, searchInputMobile);
+  setupAutocomplete(searchInput, '#search-suggestions');
+  setupAutocomplete(searchInputMobile, '#search-suggestions-mobile');
 
-  // Trending Refresh
+  // Trending/New Releases Refresh
   const refreshBtn = document.getElementById('trending-refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
-      loadTrending(true); // Force refresh
+      if (currentHomeTab === 'hot') {
+        loadTrending(true); // Force refresh
+      } else {
+        loadNewReleases(true); // Force refresh
+      }
+    });
+  }
+
+  // Home Tabs
+  const tabHot = document.getElementById('tab-hot');
+  const tabNew = document.getElementById('tab-new');
+  if (tabHot && tabNew) {
+    tabHot.addEventListener('click', () => {
+      if (currentHomeTab === 'hot') return;
+      currentHomeTab = 'hot';
+      tabHot.className = 'font-headline font-bold text-2xl text-primary border-b-2 border-primary pb-2 focus:outline-none transition-all duration-300';
+      tabNew.className = 'font-headline font-bold text-2xl text-on-surface/60 hover:text-on-surface pb-2 focus:outline-none transition-all duration-300';
+      loadTrending();
+    });
+
+    tabNew.addEventListener('click', () => {
+      if (currentHomeTab === 'new') return;
+      currentHomeTab = 'new';
+      tabNew.className = 'font-headline font-bold text-2xl text-primary border-b-2 border-primary pb-2 focus:outline-none transition-all duration-300';
+      tabHot.className = 'font-headline font-bold text-2xl text-on-surface/60 hover:text-on-surface pb-2 focus:outline-none transition-all duration-300';
+      loadNewReleases();
+    });
+  }
+
+  // Download current track
+  const downloadCurrentBtn = document.getElementById('download-current-btn');
+  if (downloadCurrentBtn) {
+    downloadCurrentBtn.addEventListener('click', () => {
+      const track = playlist.getCurrentTrack();
+      if (!track) {
+        UI.showNotification('Chưa có bài hát nào đang phát');
+        return;
+      }
+      handleDownloadTrack(track.id, track.title);
+    });
+  }
+
+  // Lyrics modal open/close/tabs
+  const lyricsModal = document.getElementById('lyrics-modal');
+  const showLyricsBtn = document.getElementById('show-lyrics-btn');
+  const closeLyricsBtn = document.getElementById('close-lyrics-btn');
+  const retryLyricsBtn = document.getElementById('retry-lyrics-btn');
+  const tabOriginal = document.getElementById('lyrics-tab-original');
+  const tabTranslation = document.getElementById('lyrics-tab-translation');
+  const lyricsText = document.getElementById('lyrics-text');
+
+  if (showLyricsBtn && lyricsModal) {
+    showLyricsBtn.addEventListener('click', () => {
+      const track = playlist.getCurrentTrack();
+      if (!track) {
+        UI.showNotification('Chưa có bài hát nào đang phát');
+        return;
+      }
+      
+      // Open modal
+      lyricsModal.classList.remove('hidden');
+      setTimeout(() => {
+        lyricsModal.classList.remove('opacity-0');
+        lyricsModal.querySelector('.bg-surface-dim').classList.remove('scale-95');
+      }, 50);
+
+      fetchLyrics(track.title, track.channel);
+    });
+  }
+
+  const closeLyrics = () => {
+    if (lyricsModal) {
+      lyricsModal.classList.add('opacity-0');
+      lyricsModal.querySelector('.bg-surface-dim').classList.add('scale-95');
+      setTimeout(() => {
+        lyricsModal.classList.add('hidden');
+      }, 300);
+    }
+  };
+
+  if (closeLyricsBtn) closeLyricsBtn.addEventListener('click', closeLyrics);
+  if (lyricsModal) {
+    lyricsModal.addEventListener('click', (e) => {
+      if (e.target === lyricsModal) closeLyrics();
+    });
+  }
+  
+  if (retryLyricsBtn) {
+    retryLyricsBtn.addEventListener('click', () => {
+      const track = playlist.getCurrentTrack();
+      if (track) {
+        fetchLyrics(track.title, track.channel);
+      }
+    });
+  }
+
+  if (tabOriginal) {
+    tabOriginal.addEventListener('click', () => {
+      tabOriginal.className = 'px-4 py-3 text-sm font-bold text-primary border-b-2 border-primary focus:outline-none transition-all duration-200';
+      tabTranslation.className = 'px-4 py-3 text-sm font-bold text-on-surface/60 hover:text-on-surface focus:outline-none transition-all duration-200';
+      if (currentLyricsData) {
+        lyricsText.textContent = currentLyricsData.lyrics;
+      }
+    });
+  }
+
+  if (tabTranslation) {
+    tabTranslation.addEventListener('click', () => {
+      tabTranslation.className = 'px-4 py-3 text-sm font-bold text-primary border-b-2 border-primary focus:outline-none transition-all duration-200';
+      tabOriginal.className = 'px-4 py-3 text-sm font-bold text-on-surface/60 hover:text-on-surface focus:outline-none transition-all duration-200';
+      if (currentLyricsData) {
+        lyricsText.textContent = currentLyricsData.translation;
+      }
     });
   }
 
@@ -345,7 +556,113 @@ async function loadTrending(force = false) {
 }
 
 function getTrendingVideoById(id) {
-  return trendingVideos.find(v => v.id === id);
+  return trendingVideos.find(v => v.id === id) || newReleasesVideos.find(v => v.id === id);
+}
+
+// ==================== NEW RELEASES (BÀI HÁT MỚI) ====================
+
+async function loadNewReleases(force = false) {
+  if (newReleasesVideos.length > 0 && !force) {
+    UI.renderTrending(newReleasesVideos);
+    return;
+  }
+
+  console.log('🆕 [New Releases] Loading started...');
+  const container = document.getElementById('trending-container');
+  if (container) {
+    container.innerHTML = '<div class="trending-loading"><div class="loading"></div><p>Đang tải bài hát mới...</p></div>';
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+  try {
+    const response = await fetch('/api/new-releases', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    
+    const data = await response.json();
+
+    if (data.success) {
+      console.log(`✅ [New Releases] Loaded ${data.data.length} videos`);
+      newReleasesVideos = data.data;
+      UI.renderTrending(newReleasesVideos);
+    } else {
+      throw new Error(data.error || 'API returned success: false');
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    const isTimeout = error.name === 'AbortError';
+    const errorMsg = isTimeout ? 'Yêu cầu quá hạn (timeout 15s). Vui lòng kiểm tra kết nối mạng.' : error.message;
+    
+    console.error('❌ [New Releases] Failed:', error);
+    
+    if (container) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">⚠️</div>
+          <p>Không thể tải bài hát mới. ${errorMsg}</p>
+          <button onclick="loadNewReleases(true)" class="pagination-btn" style="margin-top:10px;">Thử lại</button>
+        </div>
+      `;
+    }
+    UI.showNotification('Lỗi tải bài hát mới: ' + (isTimeout ? 'Timeout' : error.message));
+  }
+}
+
+// ==================== LYRICS (LỜI BÀI HÁT) ====================
+
+async function fetchLyrics(title, artist) {
+  const lyricsLoading = document.getElementById('lyrics-loading');
+  const lyricsError = document.getElementById('lyrics-error');
+  const lyricsContainer = document.getElementById('lyrics-content-container');
+  const lyricsText = document.getElementById('lyrics-text');
+  const tabTranslation = document.getElementById('lyrics-tab-translation');
+  const tabOriginal = document.getElementById('lyrics-tab-original');
+  const songInfo = document.getElementById('lyrics-song-info');
+
+  if (songInfo) songInfo.textContent = `${title} • ${artist}`;
+
+  // Show loading
+  if (lyricsLoading) lyricsLoading.classList.remove('hidden');
+  if (lyricsError) lyricsError.classList.add('hidden');
+  if (lyricsContainer) lyricsContainer.classList.add('hidden');
+  if (tabTranslation) tabTranslation.classList.add('hidden');
+  
+  // Reset active tab to original
+  if (tabOriginal) {
+    tabOriginal.className = 'px-4 py-3 text-sm font-bold text-primary border-b-2 border-primary focus:outline-none transition-all duration-200';
+  }
+  if (tabTranslation) {
+    tabTranslation.className = 'px-4 py-3 text-sm font-bold text-on-surface/60 hover:text-on-surface focus:outline-none transition-all duration-200';
+  }
+
+  try {
+    const res = await fetch(`/api/lyrics?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`);
+    const data = await res.json();
+    
+    if (data.success && data.data) {
+      currentLyricsData = data.data;
+      
+      if (lyricsLoading) lyricsLoading.classList.add('hidden');
+      if (lyricsContainer) lyricsContainer.classList.remove('hidden');
+      
+      // Render original lyrics
+      if (lyricsText) lyricsText.textContent = currentLyricsData.lyrics || 'Không có dữ liệu lời bài hát.';
+      
+      // Show translation tab if translation exists and is not empty
+      if (currentLyricsData.translation && currentLyricsData.translation.trim() !== '') {
+        if (tabTranslation) tabTranslation.classList.remove('hidden');
+      }
+    } else {
+      throw new Error(data.error || 'Failed to fetch lyrics');
+    }
+  } catch (error) {
+    console.error('Lyrics fetch error:', error);
+    if (lyricsLoading) lyricsLoading.classList.add('hidden');
+    if (lyricsError) lyricsError.classList.remove('hidden');
+    const errMsgEl = document.getElementById('lyrics-error-message');
+    if (errMsgEl) errMsgEl.textContent = `Lỗi: ${error.message}`;
+  }
 }
 
 // ==================== SOUNDCLOUD (SÁNG TÁC CỦA TÔI) ====================
@@ -479,6 +796,15 @@ function handleDynamicClicks(e) {
     }
   }
 
+  // Download button
+  const downloadBtn = target.closest('.btn-download');
+  if (downloadBtn) {
+    const videoId = downloadBtn.dataset.videoId;
+    const title = downloadBtn.dataset.videoTitle || '';
+    handleDownloadTrack(videoId, title);
+    return;
+  }
+
   // Play from queue
   const playQueueBtn = target.closest('.btn-play-queue');
   if (playQueueBtn) {
@@ -591,6 +917,19 @@ function handleDynamicClicks(e) {
     }
     return;
   }
+}
+
+// Download a track as MP3
+function handleDownloadTrack(videoId, title) {
+  UI.showNotification('Đang chuẩn bị luồng tải nhạc MP3...');
+  const url = `/api/download/${videoId}?title=${encodeURIComponent(title)}`;
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 // Play a video
