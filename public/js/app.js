@@ -286,8 +286,9 @@ function setupEventListeners() {
     });
   }
 
-  // Lyrics modal open/close/tabs
-  const lyricsModal = document.getElementById('lyrics-modal');
+  // Lyrics sidebar open/close/tabs
+  const lyricsSidebar = document.getElementById('lyrics-sidebar');
+  const lyricsBackdrop = document.getElementById('lyrics-backdrop');
   const showLyricsBtn = document.getElementById('show-lyrics-btn');
   const closeLyricsBtn = document.getElementById('close-lyrics-btn');
   const retryLyricsBtn = document.getElementById('retry-lyrics-btn');
@@ -295,7 +296,7 @@ function setupEventListeners() {
   const tabTranslation = document.getElementById('lyrics-tab-translation');
   const lyricsText = document.getElementById('lyrics-text');
 
-  if (showLyricsBtn && lyricsModal) {
+  if (showLyricsBtn && lyricsSidebar) {
     showLyricsBtn.addEventListener('click', () => {
       const track = playlist.getCurrentTrack();
       if (!track) {
@@ -303,39 +304,48 @@ function setupEventListeners() {
         return;
       }
       
-      // Open modal
-      lyricsModal.classList.remove('hidden');
+      // Open sidebar
+      lyricsSidebar.classList.remove('hidden');
+      if (lyricsBackdrop) lyricsBackdrop.classList.remove('hidden');
+      
       setTimeout(() => {
-        lyricsModal.classList.remove('opacity-0');
-        lyricsModal.querySelector('.bg-surface-dim').classList.remove('scale-95');
+        lyricsSidebar.classList.remove('translate-x-full');
+        lyricsSidebar.classList.add('translate-x-0');
+        if (lyricsBackdrop) {
+          lyricsBackdrop.classList.remove('opacity-0');
+          lyricsBackdrop.classList.add('opacity-100');
+        }
       }, 50);
 
-      fetchLyrics(track.title, track.channel);
+      fetchLyrics(track.title, track.channel, track.id);
     });
   }
 
   const closeLyrics = () => {
-    if (lyricsModal) {
-      lyricsModal.classList.add('opacity-0');
-      lyricsModal.querySelector('.bg-surface-dim').classList.add('scale-95');
+    if (lyricsSidebar) {
+      lyricsSidebar.classList.remove('translate-x-0');
+      lyricsSidebar.classList.add('translate-x-full');
+      if (lyricsBackdrop) {
+        lyricsBackdrop.classList.remove('opacity-100');
+        lyricsBackdrop.classList.add('opacity-0');
+      }
       setTimeout(() => {
-        lyricsModal.classList.add('hidden');
+        lyricsSidebar.classList.add('hidden');
+        if (lyricsBackdrop) lyricsBackdrop.classList.add('hidden');
       }, 300);
     }
   };
 
   if (closeLyricsBtn) closeLyricsBtn.addEventListener('click', closeLyrics);
-  if (lyricsModal) {
-    lyricsModal.addEventListener('click', (e) => {
-      if (e.target === lyricsModal) closeLyrics();
-    });
+  if (lyricsBackdrop) {
+    lyricsBackdrop.addEventListener('click', closeLyrics);
   }
   
   if (retryLyricsBtn) {
     retryLyricsBtn.addEventListener('click', () => {
       const track = playlist.getCurrentTrack();
       if (track) {
-        fetchLyrics(track.title, track.channel);
+        fetchLyrics(track.title, track.channel, track.id);
       }
     });
   }
@@ -611,7 +621,7 @@ async function loadNewReleases(force = false) {
 
 // ==================== LYRICS (LỜI BÀI HÁT) ====================
 
-async function fetchLyrics(title, artist) {
+async function fetchLyrics(title, artist, trackId) {
   const lyricsLoading = document.getElementById('lyrics-loading');
   const lyricsError = document.getElementById('lyrics-error');
   const lyricsContainer = document.getElementById('lyrics-content-container');
@@ -637,6 +647,51 @@ async function fetchLyrics(title, artist) {
   }
 
   try {
+    // Attempt 1: Fetch YouTube video transcript if trackId is available
+    if (trackId) {
+      console.log(`[Lyrics] Attempting to fetch transcript for video ID: ${trackId}`);
+      try {
+        const res = await fetch(`/api/video/${trackId}/transcript?lang=vi`);
+        const data = await res.json();
+        
+        if (data.success && data.data && data.data.segments && data.data.segments.length > 0) {
+          console.log(`[Lyrics] Successfully retrieved transcript segments.`);
+          
+          // Format transcript segments nicely with timestamps
+          const formattedTranscript = data.data.segments
+            .map(seg => `[${seg.offsetText}]  ${seg.text}`)
+            .join('\n');
+            
+          let formattedTranslation = '';
+          if (data.data.translation && data.data.translation.length > 0) {
+            formattedTranslation = data.data.translation
+              .map(seg => `[${seg.offsetText}]  ${seg.text}`)
+              .join('\n');
+          }
+            
+          currentLyricsData = {
+            lyrics: formattedTranscript,
+            translation: formattedTranslation
+          };
+          
+          if (lyricsLoading) lyricsLoading.classList.add('hidden');
+          if (lyricsContainer) lyricsContainer.classList.remove('hidden');
+          if (lyricsText) lyricsText.textContent = currentLyricsData.lyrics;
+          
+          // Show translation tab if translation exists and is not empty
+          if (currentLyricsData.translation && currentLyricsData.translation.trim() !== '') {
+            if (tabTranslation) tabTranslation.classList.remove('hidden');
+          }
+          
+          return; // Exit function since we have the transcript
+        }
+      } catch (e) {
+        console.warn('[Lyrics] Transcript fetch failed, falling back to internet search:', e.message);
+      }
+    }
+
+    // Attempt 2: Fallback to the internet search lyrics engine
+    console.log(`[Lyrics] Fetching lyrics from internet search fallback for: ${title} - ${artist}`);
     const res = await fetch(`/api/lyrics?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`);
     const data = await res.json();
     

@@ -19,4 +19,23 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Get transcript by video ID
+router.get('/:id/transcript', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { lang } = req.query; // e.g., ?lang=vi or ?lang=en
+
+    if (!id) {
+      return res.status(400).json({ error: 'Video ID is required' });
+    }
+
+    const transcript = await youtubeService.getVideoTranscript(id, lang || 'vi');
+    res.json({ success: true, data: transcript });
+  } catch (error) {
+    console.error('Video transcript error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
+

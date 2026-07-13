@@ -1,6 +1,7 @@
 const yts = require('yt-search');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const ytdl = require('@distube/ytdl-core');
 
 // Helper function to parse duration strings like "MM:SS" or "HH:MM:SS" into seconds
 function parseDurationToSeconds(durationStr) {
@@ -276,6 +277,316 @@ class YouTubeService {
       throw new Error(`Failed to get playlist videos: ${error.message}`);
     }
   }
+
+  /**
+   * Get metadata details of a YouTube video
+   * @param {string} videoId - YouTube video ID
+   * @returns {Promise<Object>} Object containing video details
+   */
+  async getVideoDetails(videoId) {
+    try {
+      if (!videoId || videoId.trim() === '') {
+        throw new Error('Video ID cannot be empty');
+      }
+
+      console.log(`[YouTubeService] Fetching details for video: "${videoId}"`);
+      const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      const info = await ytdl.getBasicInfo(youtubeUrl);
+      const details = info.videoDetails;
+
+      return {
+        id: videoId,
+        title: details.title,
+        description: details.description || '',
+        thumbnail: details.thumbnails?.[details.thumbnails.length - 1]?.url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        channel: details.author.name,
+        channelUrl: details.author.channel_url || '',
+        durationSeconds: parseInt(details.lengthSeconds, 10) || 0,
+        views: parseInt(details.viewCount, 10) || 0,
+        url: youtubeUrl
+      };
+    } catch (error) {
+      console.error('[YouTubeService] Error getting video details:', error);
+      // Fallback details if getBasicInfo fails
+      return {
+        id: videoId,
+        title: 'Unknown Title',
+        description: '',
+        thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        channel: 'Unknown Channel',
+        channelUrl: '',
+        durationSeconds: 0,
+        views: 0,
+        url: `https://www.youtube.com/watch?v=${videoId}`
+      };
+    }
+  }
+
+  /**
+   * Fetch and parse the transcript of a YouTube video
+   * @param {string} videoId - YouTube video ID
+   * @param {string} lang - Preferred language code (default 'vi')
+   * @returns {Promise<Object>} Object containing videoId, language, and segments
+   */
+  async getVideoTranscript(videoId, lang = 'vi') {
+    try {
+      if (!videoId || videoId.trim() === '') {
+        throw new Error('Video ID cannot be empty');
+      }
+
+      console.log(`[YouTubeService] Fetching transcript for video: "${videoId}" (preferred lang: "${lang}")`);
+      const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      let captionTracks = null;
+
+      // Attempt 1: Using @distube/ytdl-core
+      try {
+        const info = await ytdl.getInfo(youtubeUrl);
+        captionTracks = info.player_response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+      } catch (e) {
+        console.warn(`[YouTubeService] ytdl.getInfo failed for transcript on video ${videoId}, using fallback:`, e.message);
+      }
+
+      // Attempt 2: HTML scraping fallback
+      if (!captionTracks || captionTracks.length === 0) {
+        console.log(`[YouTubeService] Falling back to HTML scraping for video ${videoId}...`);
+        const res = await axios.get(youtubeUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'accept-language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7'
+          }
+        });
+        const html = res.data;
+        const startToken = 'var ytInitialPlayerResponse = ';
+        const startIndex = html.indexOf(startToken);
+        if (startIndex !== -1) {
+          const jsonStart = startIndex + startToken.length;
+          let depth = 0;
+          let jsonStr = '';
+          for (let i = jsonStart; i < html.length; i++) {
+            if (html[i] === '{') depth++;
+            else if (html[i] === '}') {
+              depth--;
+              if (depth === 0) {
+                jsonStr = html.slice(jsonStart, i + 1);
+                break;
+              }
+            }
+          }
+          if (jsonStr) {
+            try {
+              const playerObj = JSON.parse(jsonStr);
+              captionTracks = playerObj?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+            } catch (e) {
+              console.error('[YouTubeService] Error parsing ytInitialPlayerResponse JSON:', e.message);
+            }
+          }
+        }
+      }
+
+      if (!captionTracks || captionTracks.length === 0) {
+        return this.generateLLMTranscriptFallback(videoId, lang);
+      }
+
+      // Pick original track (usually the first one in the list, or a non-asr track if possible)
+      let originalTrack = captionTracks.find(t => t.kind !== 'asr');
+      if (!originalTrack) {
+        originalTrack = captionTracks[0];
+      }
+
+      // Fetch the original XML transcript content
+      console.log(`[YouTubeService] Downloading original transcript XML from: ${originalTrack.baseUrl}`);
+      const xmlResponse = await axios.get(originalTrack.baseUrl);
+      const xml = xmlResponse.data;
+
+      // Parse the original XML
+      const originalSegments = parseXmlTranscript(xml);
+
+      if (originalSegments.length === 0) {
+        return this.generateLLMTranscriptFallback(videoId, lang);
+      }
+
+      // If the original language is not the requested target language (e.g. not 'vi'), fetch translation
+      let translationSegments = [];
+      const originalLang = originalTrack.languageCode.substring(0, 2);
+      const targetLang = lang.substring(0, 2);
+
+      if (originalLang !== targetLang) {
+        try {
+          const translationUrl = `${originalTrack.baseUrl}&tlang=${lang}`;
+          console.log(`[YouTubeService] Downloading translated transcript XML from: ${translationUrl}`);
+          const transXmlResponse = await axios.get(translationUrl);
+          const transXml = transXmlResponse.data;
+          translationSegments = parseXmlTranscript(transXml);
+        } catch (e) {
+          console.warn(`[YouTubeService] Failed to fetch automatic translation track:`, e.message);
+        }
+      }
+
+      return {
+        videoId,
+        language: originalTrack.languageCode,
+        segments: originalSegments,
+        translation: translationSegments
+      };
+    } catch (error) {
+      console.error('[YouTubeService] Error getting transcript:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fallback to generate transcript/lyrics using Groq LLM
+   */
+  async generateLLMTranscriptFallback(videoId, lang) {
+    console.log(`[YouTubeService] Attempting LLM transcript fallback for video: "${videoId}"`);
+    try {
+      const details = await this.getVideoDetails(videoId);
+      
+      if (!process.env.GROQ_API_KEY) {
+        throw new Error('GROQ_API_KEY is not configured');
+      }
+
+      const prompt = `You are a professional subtitle and transcript generator.
+The user wants the transcript/lyrics of the YouTube video:
+Title: "${details.title}"
+Channel: "${details.channel}"
+Description: "${details.description.substring(0, 1000)}"
+Duration: ${details.durationSeconds} seconds
+
+Instructions:
+1. You MUST generate the lines of the transcript in its ORIGINAL language (e.g. English if it's an English song, Vietnamese if it's a Vietnamese song).
+2. If the original language is NOT Vietnamese, you MUST also generate a line-by-line Vietnamese translation of the transcript in the "translation" field.
+3. For each segment, estimate the time offset (startMs) and duration (duration in ms) of when it is spoken in the video, and format the timestamp as offsetText (e.g. "0:12", "1:40").
+4. The translation segments must match the original segments line-by-line and share the exact same startMs, duration, and offsetText.
+
+Return ONLY a valid JSON object in this format (do not include markdown formatting or wrapping):
+{
+  "language": "original_language_code",
+  "segments": [
+    {
+      "text": "original line text",
+      "startMs": 12000,
+      "duration": 3500,
+      "offsetText": "0:12"
+    }
+  ],
+  "translation": [
+    {
+      "text": "dòng dịch nghĩa tiếng Việt tương ứng",
+      "startMs": 12000,
+      "duration": 3500,
+      "offsetText": "0:12"
+    }
+  ]
+}`;
+
+      const response = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          response_format: { type: 'json_object' },
+          max_tokens: 3000,
+          temperature: 0.2
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 15000
+        }
+      );
+
+      const result = JSON.parse(response.data.choices[0].message.content);
+      if (result && result.segments && result.segments.length > 0) {
+        console.log(`[YouTubeService] Successfully generated ${result.segments.length} segments via LLM fallback.`);
+        return {
+          videoId,
+          language: result.language || 'en',
+          segments: result.segments,
+          translation: result.translation || []
+        };
+      }
+    } catch (e) {
+      console.error('[YouTubeService] LLM fallback error:', e.message);
+    }
+    throw new Error('Transcript is disabled or unavailable for this video.');
+  }
+}
+
+// Helper functions for XML decode and time formatting
+function parseXmlTranscript(xml) {
+  const results = [];
+  if (!xml || xml.trim() === '') return results;
+
+  // 1. Try srv3 format: <p t="ms" d="ms">...
+  const pRegex = /<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
+  let match;
+  while ((match = pRegex.exec(xml)) !== null) {
+    const startMs = parseInt(match[1], 10);
+    const durMs = parseInt(match[2], 10);
+    let text = match[3].replace(/<[^>]+>/g, '').trim(); // Remove child tags like <s>
+    
+    text = decodeHtmlEntities(text);
+    if (text) {
+      results.push({
+        text,
+        startMs,
+        duration: durMs,
+        offsetText: formatTime(startMs)
+      });
+    }
+  }
+
+  // 2. Fallback to classic format: <text start="s" dur="s">...
+  if (results.length === 0) {
+    const textRegex = /<text\s+start="([\d.]+)"\s+dur="([\d.]+)"[^>]*>([\s\S]*?)<\/text>/g;
+    while ((match = textRegex.exec(xml)) !== null) {
+      const startSec = parseFloat(match[1]);
+      const durSec = parseFloat(match[2]);
+      const text = decodeHtmlEntities(match[3]);
+
+      results.push({
+        text,
+        startMs: Math.round(startSec * 1000),
+        duration: Math.round(durSec * 1000),
+        offsetText: formatTime(startSec * 1000)
+      });
+    }
+  }
+
+  return results;
+}
+
+function decodeHtmlEntities(str) {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
+}
+
+function formatTime(ms) {
+  const totalSecs = Math.floor(ms / 1000);
+  const hrs = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 module.exports = new YouTubeService();
+
