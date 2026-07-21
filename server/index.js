@@ -18,7 +18,6 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/video', require('./routes/video'));
 app.use('/api/favorites', require('./routes/favorites'));
-app.use('/api/download', require('./routes/download'));
 app.use('/api/trending', require('./routes/trending'));
 app.use('/api/new-releases', require('./routes/new-releases'));
 app.use('/api/lyrics', require('./routes/lyrics'));

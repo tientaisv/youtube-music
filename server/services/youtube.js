@@ -1,7 +1,4 @@
-const yts = require('yt-search');
 const axios = require('axios');
-const cheerio = require('cheerio');
-const ytdl = require('@distube/ytdl-core');
 
 // Helper function to parse duration strings like "MM:SS" or "HH:MM:SS" into seconds
 function parseDurationToSeconds(durationStr) {
@@ -192,6 +189,7 @@ class YouTubeService {
         setTimeout(() => reject(new Error('YouTube search timed out after 10s')), 10000);
       });
 
+      const yts = require('yt-search');
       const results = await Promise.race([
         yts(query),
         timeoutPromise
@@ -241,6 +239,7 @@ class YouTubeService {
       });
 
       const html = res.data;
+      const cheerio = require('cheerio');
       const $ = cheerio.load(html);
       let ytInitialData = null;
 
@@ -291,6 +290,7 @@ class YouTubeService {
 
       console.log(`[YouTubeService] Fetching details for video: "${videoId}"`);
       const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      const ytdl = require('@distube/ytdl-core');
       const info = await ytdl.getBasicInfo(youtubeUrl);
       const details = info.videoDetails;
 
@@ -340,6 +340,7 @@ class YouTubeService {
 
       // Attempt 1: Using @distube/ytdl-core
       try {
+        const ytdl = require('@distube/ytdl-core');
         const info = await ytdl.getInfo(youtubeUrl);
         captionTracks = info.player_response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
       } catch (e) {
@@ -446,20 +447,21 @@ class YouTubeService {
         throw new Error('GROQ_API_KEY is not configured');
       }
 
-      const prompt = `You are a professional subtitle and transcript generator.
-The user wants the transcript/lyrics of the YouTube video:
+      const prompt = `You are a professional song lyrics and subtitle generator.
+The user wants the COMPLETE, FULL lyrics of the following YouTube video from START TO FINISH:
 Title: "${details.title}"
 Channel: "${details.channel}"
 Description: "${details.description.substring(0, 1000)}"
 Duration: ${details.durationSeconds} seconds
 
-Instructions:
-1. You MUST generate the lines of the transcript in its ORIGINAL language (e.g. English if it's an English song, Vietnamese if it's a Vietnamese song).
-2. If the original language is NOT Vietnamese, you MUST also generate a line-by-line Vietnamese translation of the transcript in the "translation" field.
-3. For each segment, estimate the time offset (startMs) and duration (duration in ms) of when it is spoken in the video, and format the timestamp as offsetText (e.g. "0:12", "1:40").
-4. The translation segments must match the original segments line-by-line and share the exact same startMs, duration, and offsetText.
+CRITICAL INSTRUCTIONS:
+1. You MUST include EVERY SINGLE LINE of the song from the very beginning to the very end. Do NOT cut short, do NOT skip sections, do NOT write ellipsis (...) or placeholders like "(verse 2 repeats)".
+2. Generate the lyrics in the ORIGINAL language of the song (e.g. English for English songs).
+3. If the original language is NOT Vietnamese, you MUST ALSO generate a line-by-line Vietnamese translation in the "translation" field — every line must have a corresponding translation with the exact same startMs, duration, and offsetText.
+4. For EVERY segment, estimate realistic timestamps distributed evenly across the full ${details.durationSeconds} seconds of the video. Make sure the last segment's startMs is close to ${details.durationSeconds * 1000 - 3000}ms.
+5. The translation array must have the EXACT SAME NUMBER of elements as the segments array.
 
-Return ONLY a valid JSON object in this format (do not include markdown formatting or wrapping):
+Return ONLY a valid JSON object in this format:
 {
   "language": "original_language_code",
   "segments": [
@@ -480,6 +482,7 @@ Return ONLY a valid JSON object in this format (do not include markdown formatti
   ]
 }`;
 
+
       const response = await axios.post(
         'https://api.groq.com/openai/v1/chat/completions',
         {
@@ -491,8 +494,8 @@ Return ONLY a valid JSON object in this format (do not include markdown formatti
             }
           ],
           response_format: { type: 'json_object' },
-          max_tokens: 3000,
-          temperature: 0.2
+          max_tokens: 8000,
+          temperature: 0.1
         },
         {
           headers: {

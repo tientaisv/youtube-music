@@ -316,9 +316,6 @@ const UI = {
                     <button class="p-1 text-on-surface-variant hover:text-primary btn-favorite" data-video-id="${video.id}">
                         <span class="material-symbols-outlined text-sm">favorite</span>
                     </button>
-                    <button class="p-1 text-on-surface-variant hover:text-primary btn-download" data-video-id="${video.id}" data-video-title="${escapedTitle}" title="Tải MP3">
-                        <span class="material-symbols-outlined text-sm">download</span>
-                    </button>
                 </div>
             </div>
           </div>

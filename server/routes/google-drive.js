@@ -1,19 +1,24 @@
 const express = require('express');
 const router = express.Router();
-const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
 
 // Path to the service account JSON key file
 const KEY_FILE_PATH = path.join(__dirname, '../../algebraic-craft-750-1b192dd8e8a2.json');
 
-// Initialize Google Drive API
-const auth = new google.auth.GoogleAuth({
-  keyFile: KEY_FILE_PATH,
-  scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-});
+let driveInstance = null;
 
-const drive = google.drive({ version: 'v3', auth });
+function getDriveClient() {
+  if (!driveInstance) {
+    const { google } = require('googleapis');
+    const auth = new google.auth.GoogleAuth({
+      keyFile: KEY_FILE_PATH,
+      scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+    });
+    driveInstance = google.drive({ version: 'v3', auth });
+  }
+  return driveInstance;
+}
 
 /**
  * GET /api/google-drive/files
@@ -21,7 +26,7 @@ const drive = google.drive({ version: 'v3', auth });
  */
 router.get('/files', async (req, res) => {
   try {
-    const response = await drive.files.list({
+    const response = await getDriveClient().files.list({
       q: "mimeType contains 'audio/' and trashed = false",
       fields: 'files(id, name, mimeType, size, webViewLink, thumbnailLink)',
       spaces: 'drive',
@@ -52,7 +57,7 @@ router.get('/stream/:fileId', async (req, res) => {
 
   try {
     // Lấy metadata của file để biết mimeType và size (tùy chọn)
-    const fileMetadata = await drive.files.get({
+    const fileMetadata = await getDriveClient().files.get({
       fileId: fileId,
       fields: 'name, mimeType, size'
     });
@@ -71,7 +76,7 @@ router.get('/stream/:fileId', async (req, res) => {
     }
 
     // Download stream từ Google Drive
-    const response = await drive.files.get(
+    const response = await getDriveClient().files.get(
       { fileId: fileId, alt: 'media' },
       { responseType: 'stream' }
     );
@@ -100,7 +105,7 @@ router.get('/stream/:fileId', async (req, res) => {
 router.get('/file/:fileId', async (req, res) => {
   const fileId = req.params.fileId;
   try {
-    const response = await drive.files.get({
+    const response = await getDriveClient().files.get({
       fileId: fileId,
       fields: 'id, name, mimeType, size, webViewLink, thumbnailLink',
     });

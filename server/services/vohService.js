@@ -1,5 +1,4 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
 
 class VOHService {
   constructor() {
@@ -20,6 +19,7 @@ class VOHService {
         }
       });
 
+      const cheerio = require('cheerio');
       const $ = cheerio.load(response.data);
       const nextDataJson = $('#__NEXT_DATA__').html();
       const episodes = [];
@@ -104,6 +104,7 @@ class VOHService {
       }
 
       // Pattern 2: Search for data-src or source tags
+      const cheerio = require('cheerio');
       const $ = cheerio.load(html);
       const audioSrc = $('audio source').attr('src') || $('audio').attr('src');
       if (audioSrc && audioSrc.includes('.mp3')) {

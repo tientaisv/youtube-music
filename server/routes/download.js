@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const ytdl = require('@distube/ytdl-core');
 const { spawn } = require('child_process');
 
 // Stream YouTube audio directly as MP3 to client
 router.get('/:videoId', async (req, res) => {
   try {
+    const ytdl = require('@distube/ytdl-core');
     const { videoId } = req.params;
     const { title } = req.query;
 

@@ -175,9 +175,6 @@ class Favorites {
                   <button class="p-1 text-primary btn-remove-favorite active" data-video-id="${video.id}">
                       <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">favorite</span>
                   </button>
-                  <button class="p-1 text-on-surface-variant hover:text-primary btn-download" data-video-id="${video.id}" data-video-title="${escapedTitle}">
-                      <span class="material-symbols-outlined text-sm">download</span>
-                  </button>
               </div>
           </div>
         </div>
