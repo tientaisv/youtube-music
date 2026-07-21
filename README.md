@@ -1,3 +1,13 @@
+---
+title: YouTube Music Player
+emoji: 🎵
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # 🎵 YouTube Music Player
 
 A beautiful web-based music player that streams audio from YouTube, featuring a modern Spotify-like interface. Built with Vanilla JavaScript, Node.js, and Express.

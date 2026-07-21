@@ -1,0 +1,26 @@
+# Koyeb configuration file
+type: service
+name: youtube-music-player
+definition:
+  type: web
+  image:
+    dockerfile: Dockerfile
+  routes:
+    - path: /
+      port: 8089
+  ports:
+    - port: 8089
+      protocol: http
+  env:
+    - key: PORT
+      value: "8089"
+    - key: NODE_ENV
+      value: "production"
+  instance_types:
+    - type: nano
+  health_checks:
+    - http:
+        path: /api/health
+        port: 8089
+      interval: 30
+      timeout: 5

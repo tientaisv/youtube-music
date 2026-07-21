@@ -14,12 +14,13 @@ COPY . .
 # Create data directory for favorites.json
 RUN mkdir -p /app/server/data
 
-# Expose port
-EXPOSE 8089
+# Hugging Face Spaces uses port 7860 by default
+ENV PORT=7860
+EXPOSE 7860
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:8089/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 7860) + '/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Start application
 CMD ["node", "server/index.js"]
